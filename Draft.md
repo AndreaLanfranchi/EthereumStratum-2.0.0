@@ -196,7 +196,7 @@ The implementation of the notification `mining.reconnect` helps client to better
 ```
 This notification is meant only from servers to clients. Should a server receive such a notification it will simply ignore it. After the notification has been properly sent, the server is ALLOWED to close the connection, while the client will take te proper actions to reconnect to the suggested end-point.
 The `host` member in `param` object **SHOULD** report an host DNS name and not an IP address: TLS encrypted connections require to validate the CN name in the certificate which, 99% of the cases, is an host name. 
-The third member `resume` of the `params` object sets wether or not the receiving server is prepared for session resuming.
+The third member `resume` of the `params` object sets whether or not the receiving server is prepared for session resuming.
 After this notification have been issued by the server, the client should expect no further messages and **MUST** disconnect.
 
 ### Workers Authorization
