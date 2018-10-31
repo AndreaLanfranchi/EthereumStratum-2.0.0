@@ -1,4 +1,9 @@
 # EthereumStratum/2.0.0
+## Authors
+- Andrea Lanfranchi
+- Marius Van Der Wijden
+- Paweł Bylica
+- Goobur
 ## Abstract
 This draft contains the guidelines to define a new standard for the Stratum protocol used by Ethereum miners to communicate with mining pool servers.
 ### Conventions
