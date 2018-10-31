@@ -343,11 +343,11 @@ Optionally the server can **notify** client about it's overall performance (acco
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "mining.hashrate"
+  "method": "mining.hashrate",
   "params": {
       "interval": 60,
       "hr": "0x0000000000000000000000000000000000000000000000000000000000500000",
-      "accepted": [3692,20]
+      "accepted": [3692,20],
       "rejected": 0,
   }
 }
