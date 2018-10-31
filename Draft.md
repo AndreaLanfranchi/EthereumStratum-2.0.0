@@ -324,7 +324,7 @@ Optionally the server can reply back reporting it's findings about calculated ha
 {
   "id": 16,
   "jsonrpc": "2.0",  
-  "result" : [0x00000000000000000000000000000000000000000000000000000000004f0000]
+  "result" : "0x00000000000000000000000000000000000000000000000000000000004f0000"
 }
 ```
 In case of errors - for example when the client submits too frequently - with
