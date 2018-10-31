@@ -114,7 +114,7 @@ Disconnection are not gracefully handled in Stratum. Client disconnections from 
   "method": "mining.bye"
 }
 ```
-The party receiving this message aknowledges the other party wants to stop the conversation and closes the socket. The issuer will close too.
+The party receiving this message aknowledges the other party wants to stop the conversation and closes the socket. The issuer will close too. The explicit issuance of this notification implies the session gets abandoned so no session resuming will be possible even on server which support session-resuming. Client reconnecting to the same server which implements session resuming **SHOULD** expect a new session id and **MUST** re-authorize all their workers.
 
 ### Session Handling - Subscription
 After receiving the `mining.hello` from server, the client **MUST** advertise itself with `mining.subscribe` request, if their willing to proceed:
@@ -180,6 +180,24 @@ There are cases when a miner struggles to find a solution in a reasonable time s
   "method": "mining.noop"
 }
 ```
+### Session Handling - Reconnect
+Under certain circumstances the server may need to free some resources and or to relocate miners to another machine. Until now the only option for servers was to abruptly close the connection. On the miner's side this action is interpreted as a server malfunction and they, more often than not, switch to a failover pool. 
+The implementation of the notification `mining.reconnect` helps client to better merge with logic of handling of large mining pools. 
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "mining.reconnect",
+  "params": {
+      "host": "someotherhost.com",
+      "port": 3456,
+      "resume": true
+  }
+}
+```
+This notification is meant only from servers to clients. Should a server receive such a notification it will simply ignore it. After the notification has been properly sent, the server is ALLOWED to close the connection, while the client will take te proper actions to reconnect to the suggested end-point.
+The `host` member in `param` object **SHOULD** report an host DNS name and not an IP address: TLS encrypted connections require to validate the CN name in the certificate which, 99% of the cases, is an host name. 
+The third member `resume` of the `params` object sets wether or not the receiving server is prepared for session resuming.
+After this notification have been issued by the server, the client should expect no further messages and **MUST** disconnect.
 
 ### Workers Authorization
 A miner **MUST** authorize at least one worker in order to submit solutions. A miner **MAY** authorize multiple workers in the same session. A server **MUST** allow authorization for multiple workers within a session. A `worker` is a tuple of the address where rewards must be credited coupled with identifier of the machine actually doing the work. For Ethereum the most common form is `<account>.<MachineName>`. The same account can be bound to multiple machines. For pool's allowing anonymous mining the account is the address where rewards must be credited, while, for pools requiring registration, the account is the login name. Each time a solution is submitted by the client it must be labelled with the Worker identifier. It's up to server to keep the correct accounting for different addresses.
