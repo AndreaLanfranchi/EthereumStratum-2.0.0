@@ -324,7 +324,7 @@ Optionally the server can reply back reporting it's findings about calculated ha
 {
   "id": 16,
   "jsonrpc": "2.0",  
-  "result" : "0x00000000000000000000000000000000000000000000000000000000004f0000"
+  "result" : ["0x00000000000000000000000000000000000000000000000000000000004f0000"]
 }
 ```
 In case of errors - for example when the client submits too frequently - with
@@ -338,3 +338,24 @@ In case of errors - for example when the client submits too frequently - with
   }
 }
 ```
+#### Server communicates hashrate to client
+Optionally the server can **notify** client about it's overall performance (according to schedule set on server) with a `mining.hashrate` notification composed like this
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "mining.hashrate"
+  "params": {
+      "interval": 60,
+      "hr": "0x0000000000000000000000000000000000000000000000000000000000500000",
+      "accepted": [3692,20]
+      "rejected": 0,
+  }
+}
+```
+Where `params` is an object which holds theese members for values of the **whole session**:
+- `interval` the width, in minutes, of the observation window. "_in the last x minutes we calculated ..._"
+- `hr` hexadecimal string representation (32 bytes) of the hashrate the pool has calculated for the miner
+- `accepted` is an array of two elements : the first is the overall count of accepted shares and the second is the number of stale shares. The array must be interpreted as "total accepted of which x are stale"
+- `rejected` the overall number of rejected shares
+
+The client will eventually take internal actions to reset/restart it's workers.
