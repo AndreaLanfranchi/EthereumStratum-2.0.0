@@ -304,7 +304,7 @@ This method behaves differently when issued from client or from server.
 {
   "id" : 16,
   "jsonrpc": "2.0",
-  "method": "mining.hashrate"
+  "method": "mining.hashrate",
   "params": [
       "0x0000000000000000000000000000000000000000000000000000000000500000",
       "abgx75"
