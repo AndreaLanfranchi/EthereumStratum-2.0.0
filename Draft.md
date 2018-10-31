@@ -149,17 +149,13 @@ A server receiving a client session subscription will reply back with
 {
   "id": 1,
   "jsonrpc": "2.0",  
-  "result": 
-  { 
-      "subscribed": true,
-      "session" : "abcdefgh123456"
-  } 
+  "result": "abcdefgh123456"
 }
 ```
-A server receiving a subscription request with parameter's member `session` valued will apply this logic:
-- If session resuming is not supported it will value `session` with a new id
-- If session resuming is supported it will retrieve working values from cache and will value `session` with the same id requested by the client
-- If session resuming is supported but the requested session has expired or it's cache values have been purged then it responds with `session` valued to a new id
+A server receiving a subscription request with `result` being a string holding the session id. This cases may apply
+- If session resuming is not supported it will value `result` will hold a new session Id
+- If session resuming is supported it will retrieve working values from cache and `result` will have the same id requested by the client
+- If session resuming is supported but the requested session has expired or it's cache values have been purged then it or, again, the client have not requested to resume any session, `result` is valued to a new id
 
 A server implementing session-resuming **MUST** cache :
 - The session Ids
@@ -196,7 +192,7 @@ The implementation of the notification `mining.reconnect` helps client to better
 ```
 This notification is meant only from servers to clients. Should a server receive such a notification it will simply ignore it. After the notification has been properly sent, the server is ALLOWED to close the connection, while the client will take te proper actions to reconnect to the suggested end-point.
 The `host` member in `param` object **SHOULD** report an host DNS name and not an IP address: TLS encrypted connections require to validate the CN name in the certificate which, 99% of the cases, is an host name. 
-The third member `resume` of the `params` object sets whether or not the receiving server is prepared for session resuming.
+The third member `resume` of the `params` object sets wether or not the receiving server is prepared for session resuming.
 After this notification have been issued by the server, the client should expect no further messages and **MUST** disconnect.
 
 ### Workers Authorization
@@ -212,6 +208,18 @@ The syntax for the authorization request is the following:
 }
 ```
 `params` member must be an Array of 2 string elements. For anonymous mining the "password" can be any string value or empty but not null. Pools allowing anonymous mining will simply ignore the value.
+The server **MUST** reply back either with an error or, in case of success, with
+```json
+{
+  "id": 2,
+  "jsonrpc": "2.0",  
+  "result": "abc1234"
+}
+```
+Where the `result` member is a string which holds an unique - within the scope of the `session` - token which identifies the authorized worker. For every further request issued by the client, and related to a Worker action, the client **MUST** use the token given by the server in response to an `mining.authorize` request. This reduces the number of bytes tranferred for sultion and hashrate submission.
+
+If client is resuming a previous session it **MUST** omit the authorization request for it's workers and **MUST** use the tokens assigned in the originating session. It's up to the server to keep the correct map between tokens and workers.
+
 ### Prepare for mining
 A lot of data is sent over the wire multiple times with useless redundancy. For instance the seed hash is meant to change only every 30000 blocks (roughly 5 days) while fixed-diff pools rarely change the work target. Moreover pools must optimize the search segments among miners trying to assign to every session a different "startNonce" (AKA extraNonce).
 For this purpose the `notification` method `mining.set` allows to set (on miner's side) only those params which change less frequently. The server will keep track of seed, target and extraNonce at session level and will push a notification `mining.set` whenever any (or all) of those values changes to the connected miner.
@@ -260,11 +268,11 @@ When a miner finds a solution for a job he is mining on it sends a `mining.submi
   "params": [
       "bf0488aa",
       "0xa60b68765fccd712",
-      "<account>[.<MachineName>]"
+      "abc123"
   ]
 }
 ```
-First element of `params` array is the jobId this solution refers to (as sent in the `mining.notify` message from the server). Second element is the found nonce. Third element is the fully qualified worker name as registered in previous `mining.authorize` request. Any `mining.submit` request bound to a worker which was not succesfully authorized should be rejected.
+First element of `params` array is the jobId this solution refers to (as sent in the `mining.notify` message from the server). Second element is the found nonce. Third element is the token given to the worker previous `mining.authorize` request. Any `mining.submit` request bound to a worker which was not succesfully authorized - i.e. the token does not exist in the session - **MUST** be rejected.
 
 When the server receives this request it either responds success using the short form
 ```json
@@ -286,3 +294,47 @@ Using proper error codes pools may properly inform miners of the condition of th
 - Errors 3xx lack of authorization (the worker is not authorized)
 - Errors 4xx data error (either job not found or bad solution)
 - Errors 5xx server error (internal server processng error)
+
+### Hashrate
+Most pools offer statistic informations, in form of graphs or by API calls, about the calculated hashrate expressed by the miner while miners like to compare this data with the hashrate they read on their devices. Communication about parties of these informations have never been coded in Stratum and most pools adopt the method from getWork named `eth_submitHashrate`
+In this document we propose an official implementation of the `mining.hashrate` request.
+This method behaves differently when issued from client or from server.
+#### Client communicates it's hashrate to server.
+```json
+{
+  "id" : 16,
+  "jsonrpc": "2.0",
+  "method": "mining.hashrate"
+  "params": [
+      "0x0000000000000000000000000000000000000000000000000000000000500000",
+      "abgx75"
+      ]
+}
+```
+where `params` is an array made of two elements: the first is a hexadecimal string representation (32 bytes) of the hashrate the miner reads on it's devices and the latter is the authorization token issued to worker this hashrate is refers to (see above for `mining.authorization').
+Server **MUST** respond back with either an aknowledgment message
+```json
+{
+  "id": 16,
+  "jsonrpc": "2.0",  
+}
+```
+Optionally the server can reply back reporting it's findings about calculated hashrate **for the same worker**.
+```json
+{
+  "id": 16,
+  "jsonrpc": "2.0",  
+  "result" : [0x00000000000000000000000000000000000000000000000000000000004f0000]
+}
+```
+In case of errors - for example when the client submits too frequently - with
+```json
+{
+  "id": 16,
+  "jsonrpc": "2.0",
+  "error" : {
+    "code": 420,
+    "message": "Enhance your calm. Too many requests"
+  }
+}
+```
