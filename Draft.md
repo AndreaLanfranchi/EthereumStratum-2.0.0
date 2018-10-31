@@ -6,13 +6,13 @@ The key words `MUST`, `MUST NOT`, `REQUIRED`, `SHALL`, `SHALL NOT`, `SHOULD`, `S
 The definition `mining pool server`, and it's plural form, is to be interpreted as `work provider` and later in this document can be shortened as `pool` or `server`.
 The definition `miner(s)`, and it's plural form, is to be interpreted as `work receiver/processor` and later in this document can be shortened as `miner` or `client`.
 ### Rationale
-Ethereum doesn't have yet an official Stratum implementation. It officially supports only getWork which requires miners to constantly pool the work provider. Only recently go-ethereum have implemented a [push mechanism](https://github.com/ethereum/go-ethereum/pull/17347) to notify clients for mining work, but whereas the vast majority of miners do not run a node, it's main purpose is to facilitate mining pools rather than miners.
+Ethereum does not have an official Stratum implementation yet. It officially supports only getWork which requires miners to constantly pool the work provider. Only recently go-ethereum have implemented a [push mechanism](https://github.com/ethereum/go-ethereum/pull/17347) to notify clients for mining work, but whereas the vast majority of miners do not run a node, it's main purpose is to facilitate mining pools rather than miners.
 The Stratum protocol on the other hand relies on a standard stateful TCP connection which allows two-way exchange of line-based messages. Each line contains the string representation of a JSON object following the rules of either [JSON-RPC 1.0](https://www.jsonrpc.org/specification_v1) or [JSON-RPC 2.0](https://www.jsonrpc.org/specification).
 Unfortunately, in absence of a well defined standard, various flavours of Stratum have bloomed for Ethereum mining as a derivative work for different mining pools implementations. The only attempt to define a standard was made by NiceHash with their [EthereumStratum/1.0.0](https://github.com/nicehash/Specifications/blob/master/EthereumStratum_NiceHash_v1.0.0.txt) implementation which is the main source this work inspires from.
-Mining activity, thus the interaction among pools and miners, is, at it's basics, very simple and can be summarized with "_please find a number (nonce) which coupled to this data as input for a given hashing algorithm produces, as output, a result which is below this target_". Basically this is the essence. Other messages which may or have to be exchanged among parties during a session are the glue around this basic concept.
-Due to the simplicity of the subject the proponent means to stick with JSON formatted objects rather than investigating more verbose solutions like, just to make an example, [Google's Protocol Buffers](https://developers.google.com/protocol-buffers/docs/overview) which carry the load of strict object definition.
+Mining activity, thus the interaction among pools and miners, is at it's basics very simple, and can be summarized with "_please find a number (nonce) which coupled to this data as input for a given hashing algorithm produces, as output, a result which is below a certain target_". Other messages which may or have to be exchanged among parties during a session are needed to support this basic concept.
+Due to the simplicity of the subject, the proponent, means to stick with JSON formatted objects rather than investigating more verbose solutions, like for example  [Google's Protocol Buffers](https://developers.google.com/protocol-buffers/docs/overview) which carry the load of strict object definition.
 ### Stratum design flaws
-The main Stratum design flaw is, for sure, the absence of a well defined standard. This imply miners (and mining software developers) have to struggle with different flavours which make their life hard when switching from one pool to another or even when trying to "guess" which is the flavour implemented by a single pool. Moreover all implementations still suffer from an excessive verbosity for a chain, like Ethereum is, with a very small block time. A few numbers may help understand. A normal `mining.notify` message weigh roughly 240 bytes: assuming the dispatch of 1 work per block to an audience of 50k connected TCP sockets means the transmission of roughly 1.88TB of data a month. And this can be an issue for large pools. But if we see the same figures the other way round, from a miner's perspective, we totally understand how mining decentralization is heavily affected by the quality of internet connections.
+The main Stratum design flaw is the absence of a well defined standard. This implies that miners (and mining software developers) have to struggle with different flavours which make their life hard when switching from one pool to another or even when trying to "guess" which is the flavour implemented by a single pool. Moreover all implementations still suffer from an excessive verbosity for a chain with a very small block time like Ethereum. A few numbers may help understand. A normal `mining.notify` message weigh roughly 240 bytes: assuming the dispatch of 1 work per block to an audience of 50k connected TCP sockets means the transmission of roughly 1.88TB of data a month. And this can be an issue for large pools. But if we see the same figures the other way round, from a miner's perspective, we totally understand how mining decentralization is heavily affected by the quality of internet connections.
 ### Sources of inspiration
 - [NiceHash EthereumStratum/1.0.0](https://github.com/nicehash/Specifications/blob/master/EthereumStratum_NiceHash_v1.0.0.txt)
 - [Zcash variant of the Stratum protocol](https://github.com/zcash/zips/blob/23d74b0373c824dd51c7854c0e3ea22489ba1b76/drafts/str4d-stratum/draft1.rst#json-rpc-1-0)
@@ -32,21 +32,21 @@ As per [JSON-RPC-2.0](https://www.jsonrpc.org/specification) specification reque
 - Responses **MUST** have an `id` member valued exactly as the `id` member of the request this response is for
 - Notifications **MUST NOT** have an `id` member
 
-Unlike standard JSON-RPC-2.0 in EthereumStratum/2.0.0 the `id` member **MUST NOT** be `null`. If the member is present (requests or responses) it **MUST** be valued to an integer Number ranging from 0 to 65535. It's worth underline that a message with `"id": 0` **MUST NOT** be interpreted as a notification. The removal of other identifier types (strings) is due to the need to reduce the number of bytes transferred.
+Unlike standard JSON-RPC-2.0 in EthereumStratum/2.0.0 the `id` member **MUST NOT** be `null`. If the member is present (requests or responses) it **MUST** be valued to an integer Number ranging from 0 to 65535. Please note that a message with `"id": 0` **MUST NOT** be interpreted as a notification. The removal of other identifier types (strings) is due to the need to reduce the number of bytes transferred.
 
 ### Requests
 The JSON representation of `request` object is made of these parts:
 - mandatory `id` member of type Integer : the identifier established by the issuer
 - mandatory `jsonrpc` member of type String : constantly valued to string "2.0"
 - mandatory `method` member of type String : the name of the method to be invoked on the receiver side
-- optional `params` member : in case the method invocation on the receiver side requires the application of additional parameters to be executed. The type **CAN** be Object (with named members of different types) or Array of single type. In case of array the parameters will be applied by their ordinal position. If the method requested for invocation on the receiver side does not require the application of additional parameters this member **MUST NOT** be present. The notation `"params" : null` **IS NOT PERMITTED**
+- optional `params` member : in case the method invocation on the receiver side requires the application of additional parameters to be executed. The type **CAN** be Object (with named members of different types) or Array of single type. In case of an array the parameters will be applied by their ordinal position. If the method requested for invocation on the receiver side does not require the application of additional parameters this member **MUST NOT** be present. The notation `"params" : null` **IS NOT PERMITTED**
 
 ### Responses
 The JSON representation of `response` object is made of these parts:
-- mandatory `id` member of type Integer : the same identifier of the request this response is for
+- mandatory `id` member of type Integer : the identifier of the request this response corresponds to
 - mandatory `jsonrpc` member of type String : constantly valued to string "2.0"
 - optional `error` member : whether an error occurred during the parsing of the method or during it's execution this member **MUST** be present and valued. If no errors occurred this member **MUST NOT** be present. For a detailed structure of the `error` member see below.
-- optional `result` member : wether the invocation of the method is meant to produce result data to be sent back to the issuer, and in case of no errors this member **MUST** be present even if one or more informations are null. The type can be of Object or single type Array. If no data is meant back for the issuer (the method is void on the receiver) or an error occurred this member **MUST NOT** be present.
+- optional `result` member : This has to be set, if the corresponding request requires a result from the user. If no errors  occured by invoking the corresponding function, this member **MUST** be present even if one or more informations are null. The type can be of Object or single type Array. If no data is meant back for the issuer (the method is void on the receiver) or an error occurred this member **MUST NOT** be present.
 
 You'll notice here some differences with standard JSON-RPC-2.0. Namely the result member is not always required. Basically a response like this :
 ```json
@@ -79,7 +79,7 @@ As seen above a `response` **MAY** contain an `error` member. When present this 
 - Eventually either party closes session and TCP connection
 
 ### Session Handling - Hello
-One of the worst annoyances till now is that server, at the very moment of socket connection, does not provide any useful information about the stratum flavour implemented: it's the client which has to start conversation trying with first messages. This proposal amends the situation making mandatory for the server to advertise itself to the client. 
+One of the worst annoyances until now is that server, at the very moment of socket connection, does not provide any useful information about the stratum flavour implemented. This means the client has to start a conversation by iteratively trying to connect via different protocol flavours. This proposal amends the situation making mandatory for the server to advertise itself to the client. 
 When a new client to the server, the server **MUST** send a `mining.hello` notification :
 ```json
 {
@@ -110,8 +110,9 @@ Disconnection are not gracefully handled in Stratum. Client disconnections from 
 }
 ```
 The party receiving this message aknowledges the other party wants to stop the conversation and closes the socket. The issuer will close too.
+
 ### Session Handling - Subscription
-After receiving the `mining.hello` from server, the client willing to proceed **MUST** advertise itself with `mining.subscribe` request:
+After receiving the `mining.hello` from server, the client **MUST** advertise itself with `mining.subscribe` request, if their willing to proceed:
 ```json
 {
   "id": 1,
@@ -222,7 +223,8 @@ When available server will dispatch jobs to connected miners issuing a `mining.n
   "block" : "0x64b577"
 }
 ```
-First element of `params` array is jobId as specified by pool. To reduce the amount of data sent over the wire pools **SHOULD** keep their job IDs as concise as possible. Pushing a Job id which is identical to headerhash is a bad practice.  Second element of `params` array is headerhash. Third element is an optional boolean indicating whether or not eventually found shares from previous jobs will be accounted for sure as stale.
+First element of `params` array is jobId as specified by pool. To reduce the amount of data sent over the wire pools **SHOULD** keep their job IDs as concise as possible. Pushing a Job id which is identical to headerhash is a bad practice.
+The second element of `params` array is the headerhash. The third element is an optional boolean indicating whether or not eventually found shares from previous jobs will be accounted for sure as stale.
 Optionally the server can push also the member `block` to inform the miner on the actual height of the chain he is mining on. The information would be useful for miners in case they need to async prepare the workers for an epoch/DAG change.
 
 ### Solution submission
