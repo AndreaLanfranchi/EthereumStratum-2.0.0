@@ -77,7 +77,7 @@ As seen above a `response` **MAY** contain an `error` member. When present this 
 - Server sends `mining.notify` with minimal job info
 - Client mines on job
 - Client sends `mining.submit` if any solution found for the job
-- Server replies wether solution is accepted
+- Server replies whether solution is accepted
 - Server optionally sends `mining.set` for constant values to be adopted for following mining jobs (if something changed)
 - Server sends `mining.notify` with minimal job info
 - ... (continue)
@@ -85,7 +85,7 @@ As seen above a `response` **MAY** contain an `error` member. When present this 
 
 ### Session Handling - Hello
 One of the worst annoyances until now is that server, at the very moment of socket connection, does not provide any useful information about the stratum flavour implemented. This means the client has to start a conversation by iteratively trying to connect via different protocol flavours. This proposal amends the situation making mandatory for the server to advertise itself to the client. 
-When a new client to the server, the server **MUST** send a `mining.hello` notification :
+When a new client connects to the server, the server **MUST** send a `mining.hello` notification :
 ```json
 {
   "jsonrpc": "2.0",
@@ -95,7 +95,8 @@ When a new client to the server, the server **MUST** send a `mining.hello` notif
       "proto": "EthereumStratum/2.0.0",
       "resume" : true,
       "timeout" : 180,
-      "maxerrors" : 5
+      "maxerrors" : 5,
+      "node" : "Geth/v1.8.18-unstable-f08f596a/linux-amd64/go1.10.4"
   } 
 }
 ```
@@ -104,13 +105,16 @@ The `params` member object has these mandatory members:
 - `resume` (bool) which states whether or not the host can resume a previously created session;
 - `timeout` which reports the number of seconds after which the server is allowed to drop connection if no messages from the client
 - `maxerrors` the maximum number of errors the server will bear before abruptly close connection
+- `node` (string) the node software version underlying the pool
 
 The client receiving this message will decide whether or not it's software is compatible with the protocol implementation and eventually continue with the conversation.
+Why a pool should advertise the node's version ? It's a matter of transparency : miners should know whether or not pool have upgraded to latest patches/releases for node's software.
 
 ### Session Handling - Bye
 Disconnection are not gracefully handled in Stratum. Client disconnections from pool may be due to several errors and this leads to waste of TCP sockets on server's side which wait for keepalive timeouts to trigger. A useful notification is `mining.bye` which, once processed, allows both parties of the session to stop receiving and gracefully close TCP connections
 ```json
 {
+  "jsonrpc": "2.0",
   "method": "mining.bye"
 }
 ```
@@ -192,7 +196,7 @@ The implementation of the notification `mining.reconnect` helps client to better
 ```
 This notification is meant only from servers to clients. Should a server receive such a notification it will simply ignore it. After the notification has been properly sent, the server is ALLOWED to close the connection, while the client will take te proper actions to reconnect to the suggested end-point.
 The `host` member in `param` object **SHOULD** report an host DNS name and not an IP address: TLS encrypted connections require to validate the CN name in the certificate which, 99% of the cases, is an host name. 
-The third member `resume` of the `params` object sets wether or not the receiving server is prepared for session resuming.
+The third member `resume` of the `params` object sets whether or not the receiving server is prepared for session resuming.
 After this notification have been issued by the server, the client should expect no further messages and **MUST** disconnect.
 
 ### Workers Authorization
