@@ -1,10 +1,10 @@
 # EthereumStratum/2.0.0
 ## Author
-- (Andrea Lanfranchi)[https://github.com/AndreaLanfranchi]
+- [Andrea Lanfranchi](https://github.com/AndreaLanfranchi)
 ## Contributors
-- (Paweł Bylica)[https://github.com/chfast]
-- (Peter Pratscher)[https://github.com/ppratscher]
-- (Marius Van Der Wijden)[https://github.com/MariusVanDerWijden]
+- [Paweł Bylica](https://github.com/chfast)
+- [Peter Pratscher](https://github.com/ppratscher)
+- [Marius Van Der Wijden](https://github.com/MariusVanDerWijden)
 
 ## Abstract
 This draft contains the guidelines to define a new standard for the Stratum protocol used by Ethereum miners to communicate with mining pool servers.
