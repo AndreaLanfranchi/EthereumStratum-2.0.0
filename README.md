@@ -82,7 +82,9 @@ As seen above a `response` **MAY** contain an `error` member. When present this 
 
 ## Protocol Flow
 - Client starts session by opening a TCP socket to the server
-- Server advertises it's capabilities
+- Client advertises and request protocol compatibility
+- Server confirms compatibility and declares ready
+- Client starts/resumes a session
 - Client sends request for authorization for each of it's workers
 - Server replies back with responses for each authorization
 - Server sends `mining.set` for constant values to be adopted for following mining jobs
