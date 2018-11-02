@@ -152,7 +152,7 @@ Otherwise, in case of errors or rejection to start the conversation, the server 
   "jsonrpc": "2.0",
   "error": 
   { 
-      "code": 400
+      "code": 400,
       "message" : "Bad protocol request"
   } 
 }
@@ -164,7 +164,7 @@ or
   "jsonrpc": "2.0",
   "error": 
   { 
-      "code": 403
+      "code": 403,
       "message" : "Forbidden - Banned IP address"
   } 
 }
