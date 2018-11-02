@@ -43,7 +43,7 @@ As per [JSON-RPC-2.0](https://www.jsonrpc.org/specification) specification reque
 Unlike standard JSON-RPC-2.0 in EthereumStratum/2.0.0 the `id` member **MUST NOT** be `null`. If the member is present (requests or responses) it **MUST** be valued to an integer Number ranging from 0 to 65535. Please note that a message with `"id": 0` **MUST NOT** be interpreted as a notification. The removal of other identifier types (strings) is due to the need to reduce the number of bytes transferred.
 
 ## Conventions
-- It's implicit and mandatory that each line message corresponds to a well formatted JSON object (JSON reference)[https://www.json.org/]
+- It's implicit and mandatory that each line message corresponds to a well formatted JSON object: see [JSON documentation](https://www.json.org/)
 - JSON objects are made of `members` which can be of type : primitive of string/number, JSON object, JSON arrays
 - JSON arrays : although the JSON notation allows the insertion of different data types within the same array, this behavior is generally not accepted in coding languages. Due to this, by the means of EthereumStratum/2.0.0, all implementers **MUST** assume that an array is made of elements of the very same data type.
 - JSON booleans : the JSON notation allows to express boolean values as `true` or `false`. In EthereumStratum/2.0.0, for better compatibility within arrays, boolean values will be expressed in the hex form of "0" (false) or "1" (true)
