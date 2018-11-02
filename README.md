@@ -296,7 +296,7 @@ For this purpose the `notification` method `mining.set` allows to set (on miner'
   "jsonrpc": "2.0",
   "method": "mining.set", 
   "params": {
-      "epoch" : 220,
+      "epoch" : "dc",
       "target" : "0112e0be826d694b2e62d01511f12a6061fbaec8bc02357593e70e52ba",
       "algo" : "ethash",
       "extranonce" : "af4c"
@@ -304,7 +304,7 @@ For this purpose the `notification` method `mining.set` allows to set (on miner'
 }
 ```
 At the beginning of each `session` the server **MUST** send this notification before any `mining.notify`. All values passed by this notification will be valid for all **NEXT** jobs until a new `mining.set` notification overwrites them. Description of members is as follows:
-- mandatory `epoch` (num) : unlike all actual Stratum implementations the server should inform the client of the epoch number instead of passing the seed hash. This is enforced by two reasons : the main one is that client has only one way to compute the epoch number and this is by a linear search from epoch 0 iteratively trying increasing epochs till the hash matches the seed hash. Second reason is that epoch number is more concise than seed hash. In the end the seed hash is only transmitted to inform the client about the epoch and is not involved in the mining algorithm.
+- mandatory `epoch` (hex) : unlike all actual Stratum implementations the server should inform the client of the epoch number instead of passing the seed hash. This is enforced by two reasons : the main one is that client has only one way to compute the epoch number and this is by a linear search from epoch 0 iteratively trying increasing epochs till the hash matches the seed hash. Second reason is that epoch number is more concise than seed hash. In the end the seed hash is only transmitted to inform the client about the epoch and is not involved in the mining algorithm.
 - optional `target` (hex) : this is the boundary hash already adjusted for pool difficulty. Unlike in EthereumStratum/1.0.0, which provides a `mining.set_difficulty` notification of an _index of difficulty_, the proponent opt to pass directly the boundary hash. If omitted the client **MUST** assume a boundary of `"0x00000000ffff0000000000000000000000000000000000000000000000000000"`
 - optional `algo` (string) : the algorithm the miner is expected to mine on. If omitted the client **MUST** assume `"algo": "ethash"`
 - optional `extranonce` (hex) : a starting search segment nonce assigned by server to clients so they possibly do not overlap their search segments. If omitted the client **MUST** pick the starting point of it's own search segment autonomously.
