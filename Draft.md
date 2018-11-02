@@ -93,13 +93,40 @@ As seen above a `response` **MAY** contain an `error` member. When present this 
 - Eventually either party closes session and TCP connection
 
 ### Session Handling - Hello
-One of the worst annoyances until now is that server, at the very moment of socket connection, does not provide any useful information about the stratum flavour implemented. This means the client has to start a conversation by iteratively trying to connect via different protocol flavours. This proposal amends the situation making mandatory for the server to advertise itself to the client. 
-When a new client connects to the server, the server **MUST** send a `mining.hello` notification :
+~~One of the worst annoyances until now is that server, at the very moment of socket connection, does not provide any useful information about the stratum flavour implemented. This means the client has to start a conversation by iteratively trying to connect via different protocol flavours. This proposal amends the situation making mandatory for the server to advertise itself to the client. 
+When a new client connects to the server, the server **MUST** send a `mining.hello` notification :~~
+
+It's been noted that charging the server of the duty to advertise itself as first message of the conversation could potentially be harmful in respect of traffic amplification attacks using spoofed IP addresses or in traditional DDos attacks where an attacker need to spend very little resources to force the server to send a large packet back.
+For this reason the duty of first advertisement is kept on client which will issue a `mining.hello` request like this:
+
 ```json
 {
+  "id" : 0,
   "jsonrpc": "2.0",
   "method": "mining.hello", 
   "params": 
+  { 
+      "agent": "ethminer-0.17",
+      "host" : "somemininigpool.com",
+      "port" : "4d2",
+	  "proto": "EthereumStratum/2.0.0"
+  }
+}
+```
+The `params` member object has these mandatory members:
+- `agent` (string) the mining software version
+- `host` (string) the host name of the server this client is willing to connect to
+- `port` (hex) the port number of the server this client is willing to connect to
+- `proto` (string) which reports the stratum flavour requested and expected to be implemented by the server;
+
+The rationale behind sending host and port is it enables virtual hosting, where virtual pools or private URLs might be used for DDoS protection, but that are aggregated on Stratum server backends. As with HTTP, the server CANNOT trust the host string. The port is included separately to parallel the client.reconnect method (see below).
+
+If the server is prepared to start/resume a session with such requirements it **MUST** reply back with a response like this:
+```json
+{
+  "id" : 0,
+  "jsonrpc": "2.0",
+  "result": 
   { 
       "proto": "EthereumStratum/2.0.0",
       "resume" : "1",
@@ -109,14 +136,42 @@ When a new client connects to the server, the server **MUST** send a `mining.hel
   } 
 }
 ```
-The `params` member object has these mandatory members:
-- `proto` (string) which reports the stratum flavour implemented by the server;
+Where the `result` is an object made of 5 mandatory members
+- `proto` (string) which **MUST** match the exact version requested by the client
 - `resume` (hex) which states whether or not the host can resume a previously created session;
 - `timeout` (hex) which reports the number of seconds after which the server is allowed to drop connection if no messages from the client
 - `maxerrors` (hex) the maximum number of errors the server will bear before abruptly close connection
 - `node` (string) the node software version underlying the pool
 
-The client receiving this message will decide whether or not it's software is compatible with the protocol implementation and eventually continue with the conversation.
+Eventually the client will continue with `mining.subscribe` (further on descripted)
+
+Otherwise, in case of errors or rejection to start the conversation, the server **MAY** reply back with an error giving the other party useful information or, at server's maintainers discretion, abruptly close the connection.
+```json
+{
+  "id" : 0,
+  "jsonrpc": "2.0",
+  "error": 
+  { 
+      "code": 400
+      "message" : "Bad protocol request"
+  } 
+}
+```
+or 
+```json
+{
+  "id" : 0,
+  "jsonrpc": "2.0",
+  "error": 
+  { 
+      "code": 403
+      "message" : "Forbidden - Banned IP address"
+  } 
+}
+```
+_The above two JSON error values are only samples_
+Eventually the server will close the connection.
+
 Why a pool should advertise the node's version ? It's a matter of transparency : miners should know whether or not pool have upgraded to latest patches/releases for node's software.
 
 ### Session Handling - Bye
@@ -129,35 +184,29 @@ Disconnection are not gracefully handled in Stratum. Client disconnections from 
 ```
 The party receiving this message aknowledges the other party wants to stop the conversation and closes the socket. The issuer will close too. The explicit issuance of this notification implies the session gets abandoned so no session resuming will be possible even on server which support session-resuming. Client reconnecting to the same server which implements session resuming **SHOULD** expect a new session id and **MUST** re-authorize all their workers.
 
-### Session Handling - Subscription
-After receiving the `mining.hello` from server, the client **MUST** advertise itself with `mining.subscribe` request, if their willing to proceed:
+### Session Handling - Session Subscription
+After receiving the response to `mining.hello` from server, the client, in case the server does support session resuming **MAY** request to resume a previously interrupted session with `mining.subscribe` request:
 ```json
 {
   "id": 1,
   "jsonrpc": "2.0",  
   "method": "mining.subscribe", 
-  "params": 
-  { 
-      "agent": "ethminer-0.17",
-      "host" : "somemininigpool.com",
-      "port" : "4d2",
-      "session" : "s-12345"
-  } 
+  "params": "s-12345"
 }
 ```
-where members are :
-- `agent` (string) the mining software version
-- `host` (string) the host name of the server this client is willing to connect to
-- `port` (hex) the port number of the server this client is willing to connect to
-- optional `session` (string) the session id previously provided by the server in case the server supports session resuming
+where `params` is the id of the session the client wants to resume.
 
-If client is starting a **new** session (or wishes to) it **MUST** omit the `session` member.
-In case server does not support session resuming the server **MUST** ignore the member when present. If the client detects (from previous mining.hello) that server does not support session resuming, it **MUST** omit the member and prepare for a new session.
-
-The rationale behind sending host and port is it enables virtual hosting, where virtual pools or private URLs might be used for DDoS protection, but that are aggregated on Stratum server backends. As with HTTP, the server CANNOT trust the host string. The port is included separately to parallel the client.reconnect method (see below).
+Otherwise, if client wants to start a new session **OR** server does not support session resuming, the request of subscription **MUST** omit the `params` member:
+```json
+{
+  "id": 1,
+  "jsonrpc": "2.0",  
+  "method": "mining.subscribe"
+}
+```
 
 ### Session Handling - Response to Subscription
-A server receiving a client session subscription will reply back with
+A server receiving a client session subscription **MUST** reply back with
 ```json
 {
   "id": 1,
@@ -231,7 +280,8 @@ The server **MUST** reply back either with an error or, in case of success, with
 ```
 Where the `result` member is a string which holds an unique - within the scope of the `session` - token which identifies the authorized worker. For every further request issued by the client, and related to a Worker action, the client **MUST** use the token given by the server in response to an `mining.authorize` request. This reduces the number of bytes transferred for solution and /or hashrate submission.
 
-If client is resuming a previous session it **MUST** omit the authorization request for it's workers and **MUST** use the tokens assigned in the originating session. It's up to the server to keep the correct map between tokens and workers.
+If client is resuming a previous session it **CAN** omit the authorization request for it's workers and, in this case, **MUST** use the tokens assigned in the originating session. It's up to the server to keep the correct map between tokens and workers.
+The server receiving an authorization request where the credentials match previously authorized ones within the same session **MUST** reply back with the previously generated unique token.
 
 ### Prepare for mining
 A lot of data is sent over the wire multiple times with useless redundancy. For instance the seed hash is meant to change only every 30000 blocks (roughly 5 days) while fixed-diff pools rarely change the work target. Moreover pools must optimize the search segments among miners trying to assign to every session a different "startNonce" (AKA extraNonce).
