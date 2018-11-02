@@ -39,6 +39,15 @@ As per [JSON-RPC-2.0](https://www.jsonrpc.org/specification) specification reque
 
 Unlike standard JSON-RPC-2.0 in EthereumStratum/2.0.0 the `id` member **MUST NOT** be `null`. If the member is present (requests or responses) it **MUST** be valued to an integer Number ranging from 0 to 65535. Please note that a message with `"id": 0` **MUST NOT** be interpreted as a notification. The removal of other identifier types (strings) is due to the need to reduce the number of bytes transferred.
 
+## Conventions
+- It's implicit and mandatory that each line message corresponds to a well formatted JSON object (JSON reference)[https://www.json.org/]
+- JSON objects are made of `members` which can be of type : primitive of string/number, JSON object, JSON arrays
+- JSON arrays : although the JSON notation allows the insertion of different data types within the same array, this behavior is generally not accepted in coding languages. Due to this, by the means of EthereumStratum/2.0.0, all implementers **MUST** assume that an array is made of elements of the very same data type.
+- JSON booleans : the JSON notation allows to express boolean values as `true` or `false`. In EthereumStratum/2.0.0, for better compatibility within arrays, boolean values will be expressed in the hex form of "0" (false) or "1" (true)
+- Hex values : a Hexadecimal representation of a number is actually a string data type. As a convention, and to reduce the number of transmitted bytes, the prefix "0x" **MUST** always be omitted. In addition any hex number **MUST** be transferred only for their significant part i.e. the non significant zeroes **MUST** be omitted. This directive **DOES NOT APPLY** to hashes.
+- Numbers : any non-fractional number **MUST** be transferred by it's hexadecimal representation
+
+
 ### Requests
 The JSON representation of `request` object is made of these parts:
 - mandatory `id` member of type Integer : the identifier established by the issuer
@@ -93,18 +102,18 @@ When a new client connects to the server, the server **MUST** send a `mining.hel
   "params": 
   { 
       "proto": "EthereumStratum/2.0.0",
-      "resume" : true,
-      "timeout" : 180,
-      "maxerrors" : 5,
+      "resume" : "1",
+      "timeout" : "b4",
+      "maxerrors" : "5",
       "node" : "Geth/v1.8.18-unstable-f08f596a/linux-amd64/go1.10.4"
   } 
 }
 ```
 The `params` member object has these mandatory members:
 - `proto` (string) which reports the stratum flavour implemented by the server;
-- `resume` (bool) which states whether or not the host can resume a previously created session;
-- `timeout` which reports the number of seconds after which the server is allowed to drop connection if no messages from the client
-- `maxerrors` the maximum number of errors the server will bear before abruptly close connection
+- `resume` (hex) which states whether or not the host can resume a previously created session;
+- `timeout` (hex) which reports the number of seconds after which the server is allowed to drop connection if no messages from the client
+- `maxerrors` (hex) the maximum number of errors the server will bear before abruptly close connection
 - `node` (string) the node software version underlying the pool
 
 The client receiving this message will decide whether or not it's software is compatible with the protocol implementation and eventually continue with the conversation.
@@ -131,19 +140,19 @@ After receiving the `mining.hello` from server, the client **MUST** advertise it
   { 
       "agent": "ethminer-0.17",
       "host" : "somemininigpool.com",
-      "port" : 1234,
-      "session" : null
+      "port" : "4d2",
+      "session" : "s-12345"
   } 
 }
 ```
 where members are :
 - `agent` (string) the mining software version
 - `host` (string) the host name of the server this client is willing to connect to
-- `port` (number) the port number of the server this client is willing to connect to
-- `session` (string) the session id previously provided by the server in case the server supports session resuming
+- `port` (hex) the port number of the server this client is willing to connect to
+- optional `session` (string) the session id previously provided by the server in case the server supports session resuming
 
-In case server does not support session resuming the server **MUST** ignore the member. If the client detects (from previous mining.hello) that server does not support session resuming, it **CAN** omit the member or value it to `null`
-If client connects to a server which implements session resuming but want to start a new session either omits the `session` member or values it to `null`
+If client is starting a **new** session (or wishes to) it **MUST** omit the `session` member.
+In case server does not support session resuming the server **MUST** ignore the member when present. If the client detects (from previous mining.hello) that server does not support session resuming, it **MUST** omit the member and prepare for a new session.
 
 The rationale behind sending host and port is it enables virtual hosting, where virtual pools or private URLs might be used for DDoS protection, but that are aggregated on Stratum server backends. As with HTTP, the server CANNOT trust the host string. The port is included separately to parallel the client.reconnect method (see below).
 
@@ -153,13 +162,13 @@ A server receiving a client session subscription will reply back with
 {
   "id": 1,
   "jsonrpc": "2.0",  
-  "result": "abcdefgh123456"
+  "result": "s-12345"
 }
 ```
 A server receiving a subscription request with `result` being a string holding the session id. This cases may apply
-- If session resuming is not supported it will value `result` will hold a new session Id
-- If session resuming is supported it will retrieve working values from cache and `result` will have the same id requested by the client
-- If session resuming is supported but the requested session has expired or it's cache values have been purged then it or, again, the client have not requested to resume any session, `result` is valued to a new id
+- If session resuming is not supported it will value `result` will hold a new session Id which **MUST** be a different value from the `session` member issued by client in previous `mining.subscribe` method 
+- If session resuming is supported it will retrieve working values from cache and `result` will have the same id requested by the client. This means a session is "resumed": as a consequence the server **CAN** start pushing jobs omitting to precede them with `mining.set` (see below) and the client **MUST** continue to use values lastly received within the same session scope. In addition the client **CAN** omit to re-authorize all it's workers.
+- If session resuming is supported but the requested session has expired or it's cache values have been purged then it or, again, the client have not requested to resume any session, `result` is valued to a new id which has to be different from the `session` member value issued by client in previous `mining.subscribe` method. As a consequence the server **MUST** wait for client to request authorization for it's workers and **MUST** send `mining.set` values before pushing jobs. The client **MUST** prepare for a new session discarding all previously cached values (if any).
 
 A server implementing session-resuming **MUST** cache :
 - The session Ids
@@ -189,8 +198,8 @@ The implementation of the notification `mining.reconnect` helps client to better
   "method": "mining.reconnect",
   "params": {
       "host": "someotherhost.com",
-      "port": 3456,
-      "resume": true
+      "port": "d80",
+      "resume": "1"
   }
 }
 ```
@@ -217,10 +226,10 @@ The server **MUST** reply back either with an error or, in case of success, with
 {
   "id": 2,
   "jsonrpc": "2.0",  
-  "result": "abc1234"
+  "result": "w-123"
 }
 ```
-Where the `result` member is a string which holds an unique - within the scope of the `session` - token which identifies the authorized worker. For every further request issued by the client, and related to a Worker action, the client **MUST** use the token given by the server in response to an `mining.authorize` request. This reduces the number of bytes tranferred for sultion and hashrate submission.
+Where the `result` member is a string which holds an unique - within the scope of the `session` - token which identifies the authorized worker. For every further request issued by the client, and related to a Worker action, the client **MUST** use the token given by the server in response to an `mining.authorize` request. This reduces the number of bytes transferred for solution and /or hashrate submission.
 
 If client is resuming a previous session it **MUST** omit the authorization request for it's workers and **MUST** use the tokens assigned in the originating session. It's up to the server to keep the correct map between tokens and workers.
 
@@ -232,17 +241,24 @@ For this purpose the `notification` method `mining.set` allows to set (on miner'
   "jsonrpc": "2.0",
   "method": "mining.set", 
   "params": {
+      "epoch" : 220,
+      "target" : "0112e0be826d694b2e62d01511f12a6061fbaec8bc02357593e70e52ba",
       "algo" : "ethash",
-      "extranonce" : "0xaf4c",
-      "seed" : "0xa7958ab88d27488e1b03ec3d1aeca336d8baffd356f32fdf00d3772b24765d28",
-      "target" : "0x0112e0be826d694b2e62d01511f12a6061fbaec8bc02357593e70e52ba"
+      "extranonce" : "af4c"
   }
 }
 ```
+At the beginning of each `session` the server **MUST** send this notification before any `mining.notify`. All values passed by this notification will be valid for all **NEXT** jobs until a new `mining.set` notification overwrites them. Description of members is as follows:
+- mandatory `epoch` (num) : unlike all actual Stratum implementations the server should inform the client of the epoch number instead of passing the seed hash. This is enforced by two reasons : the main one is that client has only one way to compute the epoch number and this is by a linear search from epoch 0 iteratively trying increasing epochs till the hash matches the seed hash. Second reason is that epoch number is more concise than seed hash. In the end the seed hash is only transmitted to inform the client about the epoch and is not involved in the mining algorithm.
+- optional `target` (hex) : this is the boundary hash already adjusted for pool difficulty. Unlike in EthereumStratum/1.0.0, which provides a `mining.set_difficulty` notification of an _index of difficulty_, the proponent opt to pass directly the boundary hash. If omitted the client **MUST** assume a boundary of `"0x00000000ffff0000000000000000000000000000000000000000000000000000"`
+- optional `algo` (string) : the algorithm the miner is expected to mine on. If omitted the client **MUST** assume `"algo": "ethash"`
+- optional `extranonce` (hex) : a starting search segment nonce assigned by server to clients so they possibly do not overlap their search segments. If omitted the client **MUST** pick the starting point of it's own search segment autonomously.
+
 Whenever the server detects that one, or two, or three or four values change within the session, the server will issue a notification with one, or two or three or four members in the `param` object. As a consequence the miner is instructed to adapt those values on **next** job which gets notified.
 The new `algo` member is defined to be prepared for possible presence of algorithm variants to ethash, namely ethash1a or ProgPow.
 Pools providing multicoin switching will take care to send a new `mining.set` to miners before pushing any job after a switch.
 The client wich can't support the data provided in the `mining.set` notification **MAY** close connection or stay idle till new values satisfy it's configuration (see `mining.noop`)
+All client's implementations **MUST** be prepared to accept new extranonces during the session: unlike in EthereumStratum/1.0.0 the optional client advertisement `mining.extranonce.subscribe` is now implicit and mandatory.
 
 ### Jobs notification
 When available server will dispatch jobs to connected miners issuing a `mining.notify` notification.
@@ -252,15 +268,17 @@ When available server will dispatch jobs to connected miners issuing a `mining.n
   "method": "mining.notify", 
   "params": [
       "bf0488aa",
-      "0x645cf20198c2f3861e947d4f67e3ab63b7b2e24dcc9095bd9123e7b33371f6cc",
-      false
-  ],
-  "block" : "0x64b577"
+	  "6526d5"
+      "645cf20198c2f3861e947d4f67e3ab63b7b2e24dcc9095bd9123e7b33371f6cc",
+      "0"
+  ]
 }
 ```
-First element of `params` array is jobId as specified by pool. To reduce the amount of data sent over the wire pools **SHOULD** keep their job IDs as concise as possible. Pushing a Job id which is identical to headerhash is a bad practice.
-The second element of `params` array is the headerhash. The third element is an optional boolean indicating whether or not eventually found shares from previous jobs will be accounted for sure as stale.
-Optionally the server can push also the member `block` to inform the miner on the actual height of the chain he is mining on. The information would be useful for miners in case they need to async prepare the workers for an epoch/DAG change.
+`params` member is made of 4 mandatory elements:
+- 1st element is jobId as specified by pool. To reduce the amount of data sent over the wire pools **SHOULD** keep their job IDs as concise as possible. Pushing a Job id which is identical to headerhash is a bad practice and is highly discouraged.
+- 2nd element is the hex number of the block id
+- 3rd element is the headerhash. 
+- 4th element is an hex boolean indicating whether or not eventually found shares from previous jobs will be accounted for sure as stale.
 
 ### Solution submission
 When a miner finds a solution for a job he is mining on it sends a `mining.submit` request to server.
@@ -271,12 +289,12 @@ When a miner finds a solution for a job he is mining on it sends a `mining.submi
   "method": "mining.submit", 
   "params": [
       "bf0488aa",
-      "0xa60b68765fccd712",
-      "abc123"
+      "a60b68765fccd712",
+      "w-123"
   ]
 }
 ```
-First element of `params` array is the jobId this solution refers to (as sent in the `mining.notify` message from the server). Second element is the found nonce. Third element is the token given to the worker previous `mining.authorize` request. Any `mining.submit` request bound to a worker which was not succesfully authorized - i.e. the token does not exist in the session - **MUST** be rejected.
+First element of `params` array is the jobId this solution refers to (as sent in the `mining.notify` message from the server). Second element is the found nonce as hex. Third element is the token given to the worker previous `mining.authorize` request. Any `mining.submit` request bound to a worker which was not succesfully authorized - i.e. the token does not exist in the session - **MUST** be rejected.
 
 When the server receives this request it either responds success using the short form
 ```json
@@ -310,8 +328,8 @@ This method behaves differently when issued from client or from server.
   "jsonrpc": "2.0",
   "method": "mining.hashrate",
   "params": [
-      "0x0000000000000000000000000000000000000000000000000000000000500000",
-      "abgx75"
+      "500000",
+      "w-123"
       ]
 }
 ```
@@ -328,7 +346,10 @@ Optionally the server can reply back reporting it's findings about calculated ha
 {
   "id": 16,
   "jsonrpc": "2.0",  
-  "result" : ["0x00000000000000000000000000000000000000000000000000000000004f0000"]
+  "result" : [
+      "4f0000",
+	  "w-123"
+	  ]
 }
 ```
 In case of errors - for example when the client submits too frequently - with
@@ -350,16 +371,16 @@ Optionally the server can **notify** client about it's overall performance (acco
   "method": "mining.hashrate",
   "params": {
       "interval": 60,
-      "hr": "0x0000000000000000000000000000000000000000000000000000000000500000",
+      "hr": "500000",
       "accepted": [3692,20],
       "rejected": 0,
   }
 }
 ```
 Where `params` is an object which holds theese members for values of the **whole session**:
-- `interval` the width, in minutes, of the observation window. "_in the last x minutes we calculated ..._"
-- `hr` hexadecimal string representation (32 bytes) of the hashrate the pool has calculated for the miner
-- `accepted` is an array of two elements : the first is the overall count of accepted shares and the second is the number of stale shares. The array must be interpreted as "total accepted of which x are stale"
-- `rejected` the overall number of rejected shares
+- `interval` (number) the width, in minutes, of the observation window. "_in the last x minutes we calculated ..._"
+- `hr` (hex) representation of the hashrate the pool has calculated for the miner
+- `accepted` is an array of two number elements : the first is the overall count of accepted shares and the second is the number of stale shares. The array must be interpreted as "total accepted of which x are stale"
+- `rejected` (number) the overall number of rejected shares
 
 The client will eventually take internal actions to reset/restart it's workers.
