@@ -111,10 +111,10 @@ For this reason the duty of first advertisement is kept on client which will iss
   "method": "mining.hello", 
   "params": 
   { 
-      "agent": "ethminer-0.17",
-      "host" : "somemininigpool.com",
-      "port" : "4d2",
-	  "proto": "EthereumStratum/2.0.0"
+    "agent": "ethminer-0.17",
+    "host" : "somemininigpool.com",
+    "port" : "4d2",
+    "proto": "EthereumStratum/2.0.0"
   }
 }
 ```
@@ -133,20 +133,25 @@ If the server is prepared to start/resume a session with such requirements it **
   "jsonrpc": "2.0",
   "result": 
   { 
-      "proto": "EthereumStratum/2.0.0",
-      "resume" : "1",
-      "timeout" : "b4",
-      "maxerrors" : "5",
-      "node" : "Geth/v1.8.18-unstable-f08f596a/linux-amd64/go1.10.4"
+    "proto" : "EthereumStratum/2.0.0",
+    "encoding" : "gzip",
+    "resume" : "1",
+    "timeout" : "b4",
+    "maxerrors" : "5",
+    "node" : "Geth/v1.8.18-unstable-f08f596a/linux-amd64/go1.10.4"
   } 
 }
 ```
 Where the `result` is an object made of 5 mandatory members
 - `proto` (string) which **MUST** match the exact version requested by the client
-- `resume` (hex) which states whether or not the host can resume a previously created session;
+- `encoding` (string) which value states whether or not all **next messages** should be gzip compressed or not. Possible values are "gzip" or "plain"
+- `resume` (hex) which value states whether or not the host can resume a previously created session;
 - `timeout` (hex) which reports the number of seconds after which the server is allowed to drop connection if no messages from the client
 - `maxerrors` (hex) the maximum number of errors the server will bear before abruptly close connection
 - `node` (string) the node software version underlying the pool
+
+When the server replies back with `"encoding" : "gzip"` to the client, both parties **MUST** gzip compress all next messages. In case the client is not capable of compression it **MUST** close the connection immediately.
+Should the server, after this reply, receive other messages as plain text, it **MUST** close the connection.
 
 Eventually the client will continue with `mining.subscribe` (further on descripted)
 
@@ -323,7 +328,7 @@ When available server will dispatch jobs to connected miners issuing a `mining.n
   "method": "mining.notify", 
   "params": [
       "bf0488aa",
-	  "6526d5"
+      "6526d5"
       "645cf20198c2f3861e947d4f67e3ab63b7b2e24dcc9095bd9123e7b33371f6cc",
       "0"
   ]
@@ -403,8 +408,8 @@ Optionally the server can reply back reporting it's findings about calculated ha
   "jsonrpc": "2.0",  
   "result" : [
       "4f0000",
-	  "w-123"
-	  ]
+      "w-123"
+      ]
 }
 ```
 In case of errors - for example when the client submits too frequently - with
