@@ -27,13 +27,13 @@ The main Stratum design flaw is the absence of a well defined standard. This imp
 - [BetterHash Mining Protocol](https://github.com/TheBlueMatt/bips/blob/master/bip-XXXX.mediawiki)
 
 ## Specification
-The Stratum protocol is an instance of [JSON-RPC-2.0](https://www.jsonrpc.org/specification). The miner is a JSON-RPC client, and the server is a JSON-RPC server. All communications exist within the scope of a `session`. A session starts at the moment a client opens a TCP connection to the server till the moment either party do voluntary close the very same connection or it gets broken. Servers **MAY** support session resuming if this is initially negotiated (on first session handshaking) between the client and the server. During a session all messages exchanged among server and client are line-based which means all mesasges a JSON strings terminated by ASCII LF character (which may also be denoted as `\n` in this document). The LF character **MUST NOT** appear elsewhere in a message. Client and server implementations **MUST** assume that once they read a LF character, the current message has been completely received and can be processed.
+The Stratum protocol is an instance of [JSON-RPC-2.0](https://www.jsonrpc.org/specification). The miner is a JSON-RPC client, and the server is a JSON-RPC server. All communications exist within the scope of a `session`. A session starts at the moment a client opens a TCP connection to the server till the moment either party do voluntary close the very same connection or it gets broken. Servers **MAY** support session resuming if this is initially negotiated (on first session handshaking) between the client and the server. During a session all messages exchanged among server and client are line-based which means all messages are JSON strings terminated by ASCII LF character (which may also be denoted as `\n` in this document). The LF character **MUST NOT** appear elsewhere in a message. Client and server implementations **MUST** assume that once they read a LF character, the current message has been completely received and can be processed.
 Line messages are of three types :
 - `Requests` : messages for which the issuer expects a response. The receiver **MUST** reply back to any request individually
 - `Responses` : solicited messages by a previous request. The responder **MUST** label the response with the same identifier of the originating request.
 - `Notifications` : unsolicited messages for which the issuer is not interested nor is expecting a response. Nevertheless a response (eg. an aknowledgement) **MAY** be sent by the receiver.
 
-During a `session` both party **CAN** exchange messages of the above depicted three types.
+During a `session` both parties **CAN** exchange messages of the above depicted three types.
 
 As per [JSON-RPC-2.0](https://www.jsonrpc.org/specification) specification requests and responses differ from notifications by the identifier (`id`) member in the JSON object: 
 - Requests **MUST** have an `id` member
@@ -75,7 +75,7 @@ means "request received and processed correctly with no data to send back".
 A notification message has the very same representation of a `request` with the only difference the `id` member **MUST NOT** be present. This means the issuer is not interested nor expects any reponse to this message. It's up to the receiver to take actions accordingly. For instance the receiver **MAY** decide to execute the method, or, in case of errors or methods not allowed, drop the connection thus closing the session.
 
 #### Error member
-As seen above a `response` **MAY** contain an `error` member. When present this member **MUST** be Object with:
+As seen above a `response` **MAY** contain an `error` member. When present this member **MUST** be an Object with:
 - mandatory member `code` : a Number which identifies the error occurred
 - mandatory member `message` : a short human readable sentence describing the error occurred
 - optional member `data` : a Structured or Primitive value that contains additional informations about the error. The value of this member is defined by the Server (e.g. detailed error information, nested errors etc.).
@@ -224,10 +224,10 @@ A server receiving a client session subscription **MUST** reply back with
   "result": "s-12345"
 }
 ```
-A server receiving a subscription request with `result` being a string holding the session id. This cases may apply
-- If session resuming is not supported it will value `result` will hold a new session Id which **MUST** be a different value from the `session` member issued by client in previous `mining.subscribe` method 
+A server receiving a subscription request with `params` being a string holding the session id. This cases may apply
+- If session resuming is not supported `result` will hold a new session Id which **MUST** be a different value from the `session` member issued by client in previous `mining.subscribe` method 
 - If session resuming is supported it will retrieve working values from cache and `result` will have the same id requested by the client. This means a session is "resumed": as a consequence the server **CAN** start pushing jobs omitting to precede them with `mining.set` (see below) and the client **MUST** continue to use values lastly received within the same session scope. In addition the client **CAN** omit to re-authorize all it's workers.
-- If session resuming is supported but the requested session has expired or it's cache values have been purged then it or, again, the client have not requested to resume any session, `result` is valued to a new id which has to be different from the `session` member value issued by client in previous `mining.subscribe` method. As a consequence the server **MUST** wait for client to request authorization for it's workers and **MUST** send `mining.set` values before pushing jobs. The client **MUST** prepare for a new session discarding all previously cached values (if any).
+- If session resuming is supported but the requested session has expired or it's cache values have been purged `result` will hold a new session Id which **MUST** be a different value from the `session` member issued by client in previous `mining.subscribe` method. As a consequence the server **MUST** wait for client to request authorization for it's workers and **MUST** send `mining.set` values before pushing jobs. The client **MUST** prepare for a new session discarding all previously cached values (if any).
 
 A server implementing session-resuming **MUST** cache :
 - The session Ids
@@ -262,13 +262,13 @@ The implementation of the notification `mining.reconnect` helps client to better
   }
 }
 ```
-This notification is meant only from servers to clients. Should a server receive such a notification it will simply ignore it. After the notification has been properly sent, the server is ALLOWED to close the connection, while the client will take te proper actions to reconnect to the suggested end-point.
-The `host` member in `param` object **SHOULD** report an host DNS name and not an IP address: TLS encrypted connections require to validate the CN name in the certificate which, 99% of the cases, is an host name. 
+This notification is meant only from servers to clients. Should a server receive such a notification it will simply ignore it. After the notification has been properly sent, the server is ALLOWED to close the connection, while the client will take the proper actions to reconnect to the suggested end-point.
+The `host` member in `params` object **SHOULD** report an host DNS name and not an IP address: TLS encrypted connections require to validate the CN name in the certificate which, 99% of the cases, is an host name. 
 The third member `resume` of the `params` object sets whether or not the receiving server is prepared for session resuming.
-After this notification have been issued by the server, the client should expect no further messages and **MUST** disconnect.
+After this notification has been issued by the server, the client should expect no further messages and **MUST** disconnect.
 
 ### Workers Authorization
-The miner **MUST** authorize at least one worker in order to begin receive jobs and submit solutions or hashrates. The miner **MAY** authorize multiple workers in the same session. The server **MUST** allow authorization for multiple workers within a session and **MUST** validate at least one authorization from the client before starting to send jobs. A `worker` is a tuple of the address where rewards must be credited coupled with identifier of the machine actually doing the work. For Ethereum the most common form is `<account>.<MachineName>`. The same account can be bound to multiple machines. For pool's allowing anonymous mining the account is the address where rewards must be credited, while, for pools requiring registration, the account is the login name. Each time a solution is submitted by the client it must be labelled with the Worker identifier. It's up to server to keep the correct accounting for different addresses.
+The miner **MUST** authorize at least one worker in order to begin receiving jobs and submit solutions or hashrates. The miner **MAY** authorize multiple workers in the same session. The server **MUST** allow authorization for multiple workers within a session and **MUST** validate at least one authorization from the client before starting to send jobs. A `worker` is a tuple of the address where rewards must be credited coupled with identifier of the machine actually doing the work. For Ethereum the most common form is `<account>.<MachineName>`. The same account can be bound to multiple machines. For pool's allowing anonymous mining the account is the address where rewards must be credited, while, for pools requiring registration, the account is the login name. Each time a solution is submitted by the client it must be labelled with the Worker identifier. It's up to server to keep the correct accounting for different addresses.
 
 The syntax for the authorization request is the following:
 ```json
@@ -295,7 +295,7 @@ The server receiving an authorization request where the credentials match previo
 
 ### Prepare for mining
 A lot of data is sent over the wire multiple times with useless redundancy. For instance the seed hash is meant to change only every 30000 blocks (roughly 5 days) while fixed-diff pools rarely change the work target. Moreover pools must optimize the search segments among miners trying to assign to every session a different "startNonce" (AKA extraNonce).
-For this purpose the `notification` method `mining.set` allows to set (on miner's side) only those params which change less frequently. The server will keep track of seed, target and extraNonce at session level and will push a notification `mining.set` whenever any (or all) of those values changes to the connected miner.
+For this purpose the `notification` method `mining.set` allows to set (on miner's side) only those params which change less frequently. The server will keep track of seed, target and extraNonce at session level and will push a notification `mining.set` whenever any (or all) of those values change to the connected miner.
 ```json
 {
   "jsonrpc": "2.0",
@@ -317,7 +317,7 @@ At the beginning of each `session` the server **MUST** send this notification be
 Whenever the server detects that one, or two, or three or four values change within the session, the server will issue a notification with one, or two or three or four members in the `param` object. As a consequence the miner is instructed to adapt those values on **next** job which gets notified.
 The new `algo` member is defined to be prepared for possible presence of algorithm variants to ethash, namely ethash1a or ProgPow.
 Pools providing multicoin switching will take care to send a new `mining.set` to miners before pushing any job after a switch.
-The client wich can't support the data provided in the `mining.set` notification **MAY** close connection or stay idle till new values satisfy it's configuration (see `mining.noop`)
+The client wich can't support the data provided in the `mining.set` notification **MAY** close connection or stay idle till new values satisfy it's configuration (see `mining.noop`).
 All client's implementations **MUST** be prepared to accept new extranonces during the session: unlike in EthereumStratum/1.0.0 the optional client advertisement `mining.extranonce.subscribe` is now implicit and mandatory.
 
 ### Jobs notification
@@ -378,7 +378,7 @@ Using proper error codes pools may properly inform miners of the condition of th
 - Errors 5xx server error (internal server processng error)
 
 ### Hashrate
-Most pools offer statistic informations, in form of graphs or by API calls, about the calculated hashrate expressed by the miner while miners like to compare this data with the hashrate they read on their devices. Communication about parties of these informations have never been coded in Stratum and most pools adopt the method from getWork named `eth_submitHashrate`
+Most pools offer statistic informations, in form of graphs or by API calls, about the calculated hashrate expressed by the miner while miners like to compare this data with the hashrate they read on their devices. Communication about parties of these informations have never been coded in Stratum and most pools adopt the method from getWork named `eth_submitHashrate`.
 In this document we propose an official implementation of the `mining.hashrate` request.
 This method behaves differently when issued from client or from server.
 #### Client communicates it's hashrate to server.
@@ -393,7 +393,7 @@ This method behaves differently when issued from client or from server.
       ]
 }
 ```
-where `params` is an array made of two elements: the first is a hexadecimal string representation (32 bytes) of the hashrate the miner reads on it's devices and the latter is the authorization token issued to worker this hashrate is refers to (see above for `mining.authorization').
+where `params` is an array made of two elements: the first is a hexadecimal string representation (32 bytes) of the hashrate the miner reads on it's devices and the latter is the authorization token issued to worker this hashrate is refers to (see above for `mining.authorization`).
 Server **MUST** respond back with either an aknowledgment message
 ```json
 {
