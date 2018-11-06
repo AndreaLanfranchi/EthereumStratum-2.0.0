@@ -58,7 +58,7 @@ Unlike standard JSON-RPC-2.0 in EthereumStratum/2.0.0 the `id` member **MUST NOT
 - JSON values `booleans` : the JSON notation allows to express boolean values as `true` or `false`. In EthereumStratum/2.0.0, for better compatibility within arrays, boolean values will be expressed in the hex form of "0" (false) or "1" (true)
 - JSON values `strings` : any string value **MUST** be composed of printable ASCII chars only in the ASCII range 32..126. Each string is delimited by a `"` (ASCII 34) at the beginning and at the end. Should the string value contain a `"` this must be escaped as `\"`
 - Hex values : a Hexadecimal representation of a number is actually a string data type. As a convention, and to reduce the number of transmitted bytes, the prefix "0x" **MUST** always be omitted. In addition any hex number **MUST** be transferred only for their significant part i.e. the non significant zeroes **MUST** be omitted (example : the decimal `456` must be represented as `"1c8"` and not as `"01c8"` although the conversion produces the same decimal value). This directive **DOES NOT APPLY** to hashes.
-- Hex values casing : all letters in Hexadecimal values **MUST** be lower case. (example : the decimal `456` must be represented as `"1c8"` and not as `"1C8"` although the conversion produces the same decimal value)
+- Hex values casing : all letters in Hexadecimal values **MUST** be lower case. (example : the decimal `456` must be represented as `"1c8"` and not as `"1C8"` although the conversion produces the same decimal value). This directive **DOES NOT APPLY** to hashes.
 - Numbers : any non-fractional number **MUST** be transferred by it's hexadecimal representation
 
 ### Requests
