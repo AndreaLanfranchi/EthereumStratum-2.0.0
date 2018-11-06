@@ -9,18 +9,22 @@
 GPL V3
 ## Abstract
 This draft contains the guidelines to define a new standard for the Stratum protocol used by Ethereum miners to communicate with mining pool servers.
+
 ### Conventions
 The key words `MUST`, `MUST NOT`, `REQUIRED`, `SHALL`, `SHALL NOT`, `SHOULD`, `SHOULD NOT`, `RECOMMENDED`, `MAY`, and `OPTIONAL` in this document are to be interpreted as described in [RFC 2119](https://tools.ietf.org/html/rfc2119).
 The definition `mining pool server`, and it's plural form, is to be interpreted as `work provider` and later in this document can be shortened as `pool` or `server`.
 The definition `miner(s)`, and it's plural form, is to be interpreted as `work receiver/processor` and later in this document can be shortened as `miner` or `client`.
+
 ### Rationale
 Ethereum does not have an official Stratum implementation yet. It officially supports only getWork which requires miners to constantly pool the work provider. Only recently go-ethereum have implemented a [push mechanism](https://github.com/ethereum/go-ethereum/pull/17347) to notify clients for mining work, but whereas the vast majority of miners do not run a node, it's main purpose is to facilitate mining pools rather than miners.
 The Stratum protocol on the other hand relies on a standard stateful TCP connection which allows two-way exchange of line-based messages. Each line contains the string representation of a JSON object following the rules of either [JSON-RPC 1.0](https://www.jsonrpc.org/specification_v1) or [JSON-RPC 2.0](https://www.jsonrpc.org/specification).
 Unfortunately, in absence of a well defined standard, various flavours of Stratum have bloomed for Ethereum mining as a derivative work for different mining pools implementations. The only attempt to define a standard was made by NiceHash with their [EthereumStratum/1.0.0](https://github.com/nicehash/Specifications/blob/master/EthereumStratum_NiceHash_v1.0.0.txt) implementation which is the main source this work inspires from.
 Mining activity, thus the interaction among pools and miners, is at it's basics very simple, and can be summarized with "_please find a number (nonce) which coupled to this data as input for a given hashing algorithm produces, as output, a result which is below a certain target_". Other messages which may or have to be exchanged among parties during a session are needed to support this basic concept.
 Due to the simplicity of the subject, the proponent, means to stick with JSON formatted objects rather than investigating more verbose solutions, like for example  [Google's Protocol Buffers](https://developers.google.com/protocol-buffers/docs/overview) which carry the load of strict object definition.
+
 ### Stratum design flaws
 The main Stratum design flaw is the absence of a well defined standard. This implies that miners (and mining software developers) have to struggle with different flavours which make their life hard when switching from one pool to another or even when trying to "guess" which is the flavour implemented by a single pool. Moreover all implementations still suffer from an excessive verbosity for a chain with a very small block time like Ethereum. A few numbers may help understand. A normal `mining.notify` message weigh roughly 240 bytes: assuming the dispatch of 1 work per block to an audience of 50k connected TCP sockets means the transmission of roughly 1.88TB of data a month. And this can be an issue for large pools. But if we see the same figures the other way round, from a miner's perspective, we totally understand how mining decentralization is heavily affected by the quality of internet connections.
+
 ### Sources of inspiration
 - [NiceHash EthereumStratum/1.0.0](https://github.com/nicehash/Specifications/blob/master/EthereumStratum_NiceHash_v1.0.0.txt)
 - [Zcash variant of the Stratum protocol](https://github.com/zcash/zips/blob/23d74b0373c824dd51c7854c0e3ea22489ba1b76/drafts/str4d-stratum/draft1.rst#json-rpc-1-0)
@@ -43,13 +47,19 @@ As per [JSON-RPC-2.0](https://www.jsonrpc.org/specification) specification reque
 Unlike standard JSON-RPC-2.0 in EthereumStratum/2.0.0 the `id` member **MUST NOT** be `null`. If the member is present (requests or responses) it **MUST** be valued to an integer Number ranging from 0 to 65535. Please note that a message with `"id": 0` **MUST NOT** be interpreted as a notification. The removal of other identifier types (strings) is due to the need to reduce the number of bytes transferred.
 
 ## Conventions
+- The representation of a JSON object is, at it's base, a string 
+- The conversation among the client and the server is made of strings. Each string ending with a LF (ASCII char 10) denotes a `line`. Each line **MUST** contain only one JSON root object. Eventually the root object **MAY** contain additional JSON objects in it's members.
+- Aside the `LF` delimiter each `line` **MUST** be made of printable ASCII chars in the range 32..126
 - It's implicit and mandatory that each line message corresponds to a well formatted JSON object: see [JSON documentation](https://www.json.org/)
 - JSON objects are made of `members` which can be of type : primitive of string/number, JSON object, JSON arrays
-- JSON arrays : although the JSON notation allows the insertion of different data types within the same array, this behavior is generally not accepted in coding languages. Due to this, by the means of EthereumStratum/2.0.0, all implementers **MUST** assume that an array is made of elements of the very same data type.
-- JSON booleans : the JSON notation allows to express boolean values as `true` or `false`. In EthereumStratum/2.0.0, for better compatibility within arrays, boolean values will be expressed in the hex form of "0" (false) or "1" (true)
-- Hex values : a Hexadecimal representation of a number is actually a string data type. As a convention, and to reduce the number of transmitted bytes, the prefix "0x" **MUST** always be omitted. In addition any hex number **MUST** be transferred only for their significant part i.e. the non significant zeroes **MUST** be omitted. This directive **DOES NOT APPLY** to hashes.
+- JSON `member`'s names are strings which **MUST** be composed of printable chars only in the ASCII range 48..57 (numbers) and 97..122 (lower case letters).
+- JSON `member`'s names **MUST NOT** begin with a number.
+- JSON values `arrays` : although the JSON notation allows the insertion of different data types within the same array, this behavior is generally not accepted in coding languages. Due to this, by the means of EthereumStratum/2.0.0, all implementers **MUST** assume that an array is made of elements of the very same data type.
+- JSON values `booleans` : the JSON notation allows to express boolean values as `true` or `false`. In EthereumStratum/2.0.0, for better compatibility within arrays, boolean values will be expressed in the hex form of "0" (false) or "1" (true)
+- JSON values `strings` : any string value **MUST** be composed of printable ASCII chars only in the ASCII range 32..126. Each string is delimited by a `"` (ASCII 34) at the beginning and at the end. Should the string value contain a `"` this must be escaped as `\"`
+- Hex values : a Hexadecimal representation of a number is actually a string data type. As a convention, and to reduce the number of transmitted bytes, the prefix "0x" **MUST** always be omitted. In addition any hex number **MUST** be transferred only for their significant part i.e. the non significant zeroes **MUST** be omitted (example : the decimal `456` must be represented as `"1c8"` and not as `"01c8"` although the conversion produces the same decimal value). This directive **DOES NOT APPLY** to hashes.
+- Hex values casing : all letters in Hexadecimal values **MUST** be lower case. (example : the decimal `456` must be represented as `"1c8"` and not as `"1C8"` although the conversion produces the same decimal value)
 - Numbers : any non-fractional number **MUST** be transferred by it's hexadecimal representation
-
 
 ### Requests
 The JSON representation of `request` object is made of these parts:
