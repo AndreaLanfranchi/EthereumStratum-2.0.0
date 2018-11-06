@@ -413,12 +413,18 @@ When a miner finds a solution for a job he is mining on it sends a `mining.submi
   "method": "mining.submit", 
   "params": [
       "bf0488aa",
-      "a60b68765fccd712",
+      "68765fccd712",
       "w-123"
   ]
 }
 ```
-First element of `params` array is the jobId this solution refers to (as sent in the `mining.notify` message from the server). Second element is the found nonce as hex. Third element is the token given to the worker previous `mining.authorize` request. Any `mining.submit` request bound to a worker which was not succesfully authorized - i.e. the token does not exist in the session - **MUST** be rejected.
+First element of `params` array is the jobId this solution refers to (as sent in the `mining.notify` message from the server). Second element is the `miner nonce` as hex. Third element is the token given to the worker previous `mining.authorize` request. Any `mining.submit` request bound to a worker which was not succesfully authorized - i.e. the token does not exist in the session - **MUST** be rejected.
+
+You'll notice in the sample above the `miner nonce` is only 12 bytes wide (should be 16). Why ?
+That's because in the previous `mining.set` the server has set an `extranonce` of `af4c`. This means the full nonce is `af4c68765fccd712`
+In presence of extranonce the miner **MUST** submit only the chars to append to the extranonce to build the final hex value. If no extranonce is set for the session or for the work the miner **MUST** send all 16 bytes.
+
+It's server duty to keep track of the tuples `job ids <-> extranonces` per session.
 
 When the server receives this request it either responds success using the short form
 ```json
@@ -440,6 +446,8 @@ Using proper error codes pools may properly inform miners of the condition of th
 - Errors 3xx lack of authorization (the worker is not authorized)
 - Errors 4xx data error (either job not found or bad solution)
 - Errors 5xx server error (internal server processng error)
+
+Client **should** treat errors as "soft" errors (stales) or "hard" (bad nonce computation, job not found etc.). Errors in 5xx range are server errors and suggest the miner to abandon the connection and switch to a failover.
 
 ### Hashrate
 Most pools offer statistic informations, in form of graphs or by API calls, about the calculated hashrate expressed by the miner while miners like to compare this data with the hashrate they read on their devices. Communication about parties of these informations have never been coded in Stratum and most pools adopt the method from getWork named `eth_submitHashrate`.
