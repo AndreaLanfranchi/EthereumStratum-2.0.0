@@ -57,7 +57,7 @@ Unlike standard JSON-RPC-2.0 in EthereumStratum/2.0.0 the `id` member **MUST NOT
 - JSON values `arrays` : although the JSON notation allows the insertion of different data types within the same array, this behavior is generally not accepted in coding languages. Due to this, by the means of EthereumStratum/2.0.0, all implementers **MUST** assume that an array is made of elements of the very same data type.
 - JSON values `booleans` : the JSON notation allows to express boolean values as `true` or `false`. In EthereumStratum/2.0.0, for better compatibility within arrays, boolean values will be expressed in the hex form of "0" (false) or "1" (true)
 - JSON values `strings` : any string value **MUST** be composed of printable ASCII chars only in the ASCII range 32..126. Each string is delimited by a `"` (ASCII 34) at the beginning and at the end. Should the string value contain a `"` this must be escaped as `\"`
-- Hex values : a Hexadecimal representation of a number is actually a string data type. As a convention, and to reduce the number of transmitted bytes, the prefix "0x" **MUST** always be omitted. In addition any hex number **MUST** be transferred only for their significant part i.e. the non significant zeroes **MUST** be omitted (example : the decimal `456` must be represented as `"1c8"` and not as `"01c8"` although the conversion produces the same decimal value). This directive **DOES NOT APPLY** to hashes.
+- Hex values : a Hexadecimal representation of a number is actually a string data type. As a convention, and to reduce the number of transmitted bytes, the prefix "0x" **MUST** always be omitted. In addition any hex number **MUST** be transferred only for their significant part i.e. the non significant zeroes **MUST** be omitted (example : the decimal `456` must be represented as `"1c8"` and not as `"01c8"` although the conversion produces the same decimal value). This directive **DOES NOT APPLY** to hashes and extranonces
 - Hex values casing : all letters in Hexadecimal values **MUST** be lower case. (example : the decimal `456` must be represented as `"1c8"` and not as `"1C8"` although the conversion produces the same decimal value). This directive **DOES NOT APPLY** to hashes.
 - Numbers : any non-fractional number **MUST** be transferred by it's hexadecimal representation
 
@@ -319,16 +319,70 @@ For this purpose the `notification` method `mining.set` allows to set (on miner'
 }
 ```
 At the beginning of each `session` the server **MUST** send this notification before any `mining.notify`. All values passed by this notification will be valid for all **NEXT** jobs until a new `mining.set` notification overwrites them. Description of members is as follows:
-- mandatory `epoch` (hex) : unlike all actual Stratum implementations the server should inform the client of the epoch number instead of passing the seed hash. This is enforced by two reasons : the main one is that client has only one way to compute the epoch number and this is by a linear search from epoch 0 iteratively trying increasing epochs till the hash matches the seed hash. Second reason is that epoch number is more concise than seed hash. In the end the seed hash is only transmitted to inform the client about the epoch and is not involved in the mining algorithm.
+- optional `epoch` (hex) : unlike all actual Stratum implementations the server should inform the client of the epoch number instead of passing the seed hash. This is enforced by two reasons : the main one is that client has only one way to compute the epoch number and this is by a linear search from epoch 0 iteratively trying increasing epochs till the hash matches the seed hash. Second reason is that epoch number is more concise than seed hash. In the end the seed hash is only transmitted to inform the client about the epoch and is not involved in the mining algorithm.
 - optional `target` (hex) : this is the boundary hash already adjusted for pool difficulty. Unlike in EthereumStratum/1.0.0, which provides a `mining.set_difficulty` notification of an _index of difficulty_, the proponent opt to pass directly the boundary hash. If omitted the client **MUST** assume a boundary of `"0x00000000ffff0000000000000000000000000000000000000000000000000000"`
 - optional `algo` (string) : the algorithm the miner is expected to mine on. If omitted the client **MUST** assume `"algo": "ethash"`
-- optional `extranonce` (hex) : a starting search segment nonce assigned by server to clients so they possibly do not overlap their search segments. If omitted the client **MUST** pick the starting point of it's own search segment autonomously.
+- optional `extranonce` (hex) : a starting search segment nonce assigned by server to clients so they possibly do not overlap their search segments. If server wants to "cancel" a previously set extranonce it must pass this member valued as an empty string.
 
-Whenever the server detects that one, or two, or three or four values change within the session, the server will issue a notification with one, or two or three or four members in the `param` object. As a consequence the miner is instructed to adapt those values on **next** job which gets notified.
+Whenever the server detects that one, or two, or three or four values change within the session, the server will issue a notification with one, or two or three or four members in the `param` object. For this reason on each **new** session the server **MUST** pass all four members. As a consequence the miner is instructed to adapt those values on **next** job which gets notified.
 The new `algo` member is defined to be prepared for possible presence of algorithm variants to ethash, namely ethash1a or ProgPow.
 Pools providing multicoin switching will take care to send a new `mining.set` to miners before pushing any job after a switch.
 The client wich can't support the data provided in the `mining.set` notification **MAY** close connection or stay idle till new values satisfy it's configuration (see `mining.noop`).
 All client's implementations **MUST** be prepared to accept new extranonces during the session: unlike in EthereumStratum/1.0.0 the optional client advertisement `mining.extranonce.subscribe` is now implicit and mandatory.
+
+The miner receiving the `extranonce` **MUST** initialize the search segment for next job resizing the extranonce to a hex of 16 bytes thus appending as many zeroes as needed.
+Extranonce "af4c" means "_search segment of next jobs starts from 0xaf4c000000000000_"
+If `extranonce` is valued to an empty string, or it's never been set within the session scope, the client is free pick any starting point of it's own search segment on subsequent `mining.notify` jobs.
+
+### A detail of "extranonce"
+
+Miners connected to a pool might likely process the very same nonces thus wasting a lot of duplicate jobs. A `nonce` is any valid number which, applied to algorithm and job specifications, produces a result which is below a certain target. For every job pushed by server to client(s) there are 2^64 possible nonces to test.
+
+To be noted that :
+- Any nonce in the 2^64 has the very same possibility to be the right one. 
+- A certain hashing job can be solved by more than one nonce
+
+Every "test" over a number is called a hash. Assuming a miner should receive a job for each block and considering the actual average block time of 15 seconds that would mean a miner should try
+
+```
+  ( 2^64 / 15 ) / 1T ~ 1,229,782.94 TeraHashes per second
+```
+
+This computation capacity is well beyond any miner on the market (including ASICs). For this reason single miners can process only small chunks (segments) of this humongous range. The way miners pick the segments to search on is beyond the scope of this work. Fact is as miners are not coordinated there is no knowledge - for a single miner - of segments picked by other miners.
+Extranonce concept is here to mitigate this possibility of duplicate jobs charging the server (the work provider) to give miners, at the maximum possible extent, different segments to search on.
+
+Giving the above assumptions we can depict a nonce as any number in the hex range :
+
+```
+  Min 0x0000000000000000
+  Max 0xffffffffffffffff
+```
+_the prefix 0x is voluntarily inserted here only to give a better visual representation_.
+
+The `extranonce` is, at it's basics, the message of the server saying the client "_I give you the first number to start search from_". More in detail the `extranoce` is the leftmost part of that number.
+Assume a pool notifies the client the usage of extranonce `ab5d` this means the client will see it's search segment narrowed as 
+```
+  Min 0xab5d000000000000
+  Max 0xab5dffffffffffff
+```
+Pushing an extranonce of 4 bytes (like in the example) will give pool the possibility to separate segment 65535 different miners ( or if you prefer 0xffff miners ) while leaving the miner still a segment of 2^48 possible nonces to search on.
+Recalculating, as above, the computation capacity needed to search this segment we get
+```
+  ( 2^48 / 15 ) / 1T ~ 18.76 TeraHashes per second
+```
+Which is still a wide segment where miners can randomly (or using other ergodic techniques) pick their internal search segments.
+
+Extranonce **MUST** be passed with all relevant bytes (no omission of left zeroes) for a specific reason. Assume an extranonce of "01ac" : it  has the same decimal value of "1ac" but the number of bytes changes thus changing available search segment
+
+```
+  When "01ac"               When "1ac"
+  Segment is                Segment is
+  Min  0x01ac000000000000   Min  0x1ac0000000000000
+  Max  0x01acffffffffffff   Max  0x1acfffffffffffff
+```
+As you can see resulting segments are quite different
+
+This all said pools (server), when making use of extranonce, **MUST** observe a maximum length of 6 bytes (hex).
 
 ### Jobs notification
 When available server will dispatch jobs to connected miners issuing a `mining.notify` notification.
