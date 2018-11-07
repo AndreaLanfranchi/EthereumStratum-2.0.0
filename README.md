@@ -39,12 +39,19 @@ Line messages are of three types :
 
 During a `session` both parties **CAN** exchange messages of the above depicted three types.
 
+### JSON-RPC-2.0 Compliances
+
 As per [JSON-RPC-2.0](https://www.jsonrpc.org/specification) specification requests and responses differ from notifications by the identifier (`id`) member in the JSON object: 
 - Requests **MUST** have an `id` member
 - Responses **MUST** have an `id` member valued exactly as the `id` member of the request this response is for
 - Notifications **MUST NOT** have an `id` member
 
-Unlike standard JSON-RPC-2.0 in EthereumStratum/2.0.0 the `id` member **MUST NOT** be `null`. If the member is present (requests or responses) it **MUST** be valued to an integer Number ranging from 0 to 65535. Please note that a message with `"id": 0` **MUST NOT** be interpreted as a notification. The removal of other identifier types (strings) is due to the need to reduce the number of bytes transferred.
+### JSON-RPC-2.0 Defiances
+
+In order to get the most concise messages among parties of a session/conversation this implementation enforces the following defiances :
+- JSON member `jsonrpc` (always valued to "2.0") **SHOULD ALWAYS BE OMITTED**
+- JSON member `id` **MUST NOT** be `null`. When member is present, mandatorily in requests and responses, it **MUST** be valued to an integer Number ranging from 0 to 65535. Please note that a message with `"id": 0` **MUST NOT** be interpreted as a notification: it's a request with identifier 0
+- JSON member `id` **MUST** be only of type primitive number. The removal of other identifier types (namely strings) is due to the need to reduce the number of bytes transferred.
 
 ## Conventions
 - The representation of a JSON object is, at it's base, a string 
@@ -73,13 +80,64 @@ The JSON representation of `response` object is made of these parts:
 - mandatory `id` member of type Integer : the identifier of the request this response corresponds to
 - mandatory `jsonrpc` member of type String : constantly valued to string "2.0"
 - optional `error` member : whether an error occurred during the parsing of the method or during it's execution this member **MUST** be present and valued. If no errors occurred this member **MUST NOT** be present. For a detailed structure of the `error` member see below.
-- optional `result` member : This has to be set, if the corresponding request requires a result from the user. If no errors  occured by invoking the corresponding function, this member **MUST** be present even if one or more informations are null. The type can be of Object or single type Array. If no data is meant back for the issuer (the method is void on the receiver) or an error occurred this member **MUST NOT** be present.
+- optional `result` member : This has to be set, if the corresponding request requires a result from the user. If no errors occurred by invoking the corresponding function, this member **MUST** be present even if one or more informations are null. The type can be of Object or single type Array. If no data is meant back for the issuer (the method is void on the receiver) or an error occurred this member **MUST NOT** be present.
 
 You'll notice here some differences with standard JSON-RPC-2.0. Namely the result member is not always required. Basically a response like this :
 ```json
-{"id": 2, "jsonrpc": "2.0"}
+{"id": 2}
 ```
 means "request received and processed correctly with no data to send back".
+
+To better clarify the concept and clear the field of free interpretations let's take another example of **response**
+```json
+{"id": 2, "result": false}
+```
+This response syntax leaves room to many interpretations : is it an error ? is `false` the legit response value to the issued request ?
+For this reason responses, we reiterate, **MUST BE** of two types:
+- success responses : no error occurred during the processing, the request was legit, syntactically correct, and the receiver had no issues processing it. This kind of responses **MUST NOT** have the `error` member and **MAY** have the `result` member if a value is expected back to the issuer.
+- failure responses : something wrong with the request, it's syntax, it's validity scope, or server processing problems. This kind of responses **MUST HAVE** the `error` member and **MAY** have the `result` member.
+
+The latter deserves a better explanation: failure responses can be distinguished by a severity degree. 
+Example 1 : a client submits a solution and server rejects it cause it's not below target. Server **MUST** respond like this
+```json
+{
+  "id": 31,
+  "error": {
+      "code": 406,
+      "message" : "Bad nonce"
+  }
+}
+```
+Example 2 : a client submits a solution and server **accepts** it **but** it accounts the share as stale. Server **MUST** respond like this
+```json
+{
+  "id": 31,
+  "error": {
+      "code": 202,
+      "message" : "Stale"
+  }
+}
+```
+Example 3 : a client submits an authorization request specifying an invalid workername. Server authorizes the account but rejects worker name. Server **MUST** respond like this
+```json
+{
+  "id": 1,
+  "error": {
+      "code": 215,
+      "message" : "Invalid Worker Name"
+  }
+}
+```
+
+Example 1 depicts the condition of a severe failure while Example 2 and 3 depict a situation where the request has been accepted and processed properly but the result **MAY NOT** be what expected by the client.
+It's up to the client to evaluate the severity of the error and decide whether to proceed or not.
+
+Using proper error codes pools may properly inform miners of the condition of their requests. Error codes **MUST** honor this scheme:
+
+- Error codes 2xx : request accepted and processed but some additional info in the `error` member may give hint
+- Error codes 3xx : server could not process the request due to a lack of authorization by the client
+- Error codes 4xx : server could not process the request due to syntactic problems (method not found, missing params, wrong data types ecc.) or passed `param` values are not valid.
+- Error codes 5xx : server could not process the request due to internal errors
 
 ### Notifications
 A notification message has the very same representation of a `request` with the only difference the `id` member **MUST NOT** be present. This means the issuer is not interested nor expects any reponse to this message. It's up to the receiver to take actions accordingly. For instance the receiver **MAY** decide to execute the method, or, in case of errors or methods not allowed, drop the connection thus closing the session.
@@ -117,7 +175,6 @@ For this reason the duty of first advertisement is kept on client which will iss
 ```json
 {
   "id" : 0,
-  "jsonrpc": "2.0",
   "method": "mining.hello", 
   "params": 
   { 
@@ -140,7 +197,6 @@ If the server is prepared to start/resume a session with such requirements it **
 ```json
 {
   "id" : 0,
-  "jsonrpc": "2.0",
   "result": 
   { 
     "proto" : "EthereumStratum/2.0.0",
@@ -169,7 +225,6 @@ Otherwise, in case of errors or rejection to start the conversation, the server 
 ```json
 {
   "id" : 0,
-  "jsonrpc": "2.0",
   "error": 
   { 
       "code": 400,
@@ -181,7 +236,6 @@ or
 ```json
 {
   "id" : 0,
-  "jsonrpc": "2.0",
   "error": 
   { 
       "code": 403,
@@ -198,7 +252,6 @@ Why a pool should advertise the node's version ? It's a matter of transparency :
 Disconnection are not gracefully handled in Stratum. Client disconnections from pool may be due to several errors and this leads to waste of TCP sockets on server's side which wait for keepalive timeouts to trigger. A useful notification is `mining.bye` which, once processed, allows both parties of the session to stop receiving and gracefully close TCP connections
 ```json
 {
-  "jsonrpc": "2.0",
   "method": "mining.bye"
 }
 ```
@@ -209,7 +262,6 @@ After receiving the response to `mining.hello` from server, the client, in case 
 ```json
 {
   "id": 1,
-  "jsonrpc": "2.0",  
   "method": "mining.subscribe", 
   "params": "s-12345"
 }
@@ -220,7 +272,6 @@ Otherwise, if client wants to start a new session **OR** server does not support
 ```json
 {
   "id": 1,
-  "jsonrpc": "2.0",  
   "method": "mining.subscribe"
 }
 ```
@@ -230,7 +281,6 @@ A server receiving a client session subscription **MUST** reply back with
 ```json
 {
   "id": 1,
-  "jsonrpc": "2.0",  
   "result": "s-12345"
 }
 ```
@@ -254,7 +304,6 @@ There are cases when a miner struggles to find a solution in a reasonable time s
 ```json
 {
   "id": 50,
-  "jsonrpc": "2.0",
   "method": "mining.noop"
 }
 ```
@@ -263,7 +312,6 @@ Under certain circumstances the server may need to free some resources and or to
 The implementation of the notification `mining.reconnect` helps client to better merge with logic of handling of large mining pools. 
 ```json
 {
-  "jsonrpc": "2.0",
   "method": "mining.reconnect",
   "params": {
       "host": "someotherhost.com",
@@ -284,7 +332,6 @@ The syntax for the authorization request is the following:
 ```json
 {
   "id": 2,
-  "jsonrpc": "2.0",  
   "method": "mining.authorize", 
   "params": ["<account>[.<MachineName>]", "password"]
 }
@@ -294,7 +341,6 @@ The server **MUST** reply back either with an error or, in case of success, with
 ```json
 {
   "id": 2,
-  "jsonrpc": "2.0",  
   "result": "w-123"
 }
 ```
@@ -308,7 +354,6 @@ A lot of data is sent over the wire multiple times with useless redundancy. For 
 For this purpose the `notification` method `mining.set` allows to set (on miner's side) only those params which change less frequently. The server will keep track of seed, target and extraNonce at session level and will push a notification `mining.set` whenever any (or all) of those values change to the connected miner.
 ```json
 {
-  "jsonrpc": "2.0",
   "method": "mining.set", 
   "params": {
       "epoch" : "dc",
@@ -388,7 +433,6 @@ This all said pools (server), when making use of extranonce, **MUST** observe a 
 When available server will dispatch jobs to connected miners issuing a `mining.notify` notification.
 ```json
 {
-  "jsonrpc": "2.0",
   "method": "mining.notify", 
   "params": [
       "bf0488aa",
@@ -409,7 +453,6 @@ When a miner finds a solution for a job he is mining on it sends a `mining.submi
 ```json
 {
   "id": 31,
-  "jsonrpc": "2.0",
   "method": "mining.submit", 
   "params": [
       "bf0488aa",
@@ -428,24 +471,18 @@ It's server duty to keep track of the tuples `job ids <-> extranonces` per sessi
 
 When the server receives this request it either responds success using the short form
 ```json
-{"id": 31, "jsonrpc": "2.0"}
+{"id": 31}
 ```
 or, in case of any error or condition with a detailed error object
 ```json
 {
   "id": 31,
-  "jsonrpc": "2.0",
   "error": {
       "code": 404,
       "message" : "Job not found"
   }
 }
 ```
-Using proper error codes pools may properly inform miners of the condition of their solution. If solution is accepted without errors it means is not stale. Any other condition, including staleness, could be easily derived from this very simple coding like for Http
-- Errors 2xx not really an error but stale condition
-- Errors 3xx lack of authorization (the worker is not authorized)
-- Errors 4xx data error (either job not found or bad solution)
-- Errors 5xx server error (internal server processng error)
 
 Client **should** treat errors as "soft" errors (stales) or "hard" (bad nonce computation, job not found etc.). Errors in 5xx range are server errors and suggest the miner to abandon the connection and switch to a failover.
 
@@ -457,7 +494,6 @@ This method behaves differently when issued from client or from server.
 ```json
 {
   "id" : 16,
-  "jsonrpc": "2.0",
   "method": "mining.hashrate",
   "params": [
       "500000",
@@ -468,16 +504,12 @@ This method behaves differently when issued from client or from server.
 where `params` is an array made of two elements: the first is a hexadecimal string representation (32 bytes) of the hashrate the miner reads on it's devices and the latter is the authorization token issued to worker this hashrate is refers to (see above for `mining.authorization`).
 Server **MUST** respond back with either an aknowledgment message
 ```json
-{
-  "id": 16,
-  "jsonrpc": "2.0",  
-}
+{"id": 16 }
 ```
 Optionally the server can reply back reporting it's findings about calculated hashrate **for the same worker**.
 ```json
 {
   "id": 16,
-  "jsonrpc": "2.0",  
   "result" : [
       "4f0000",
       "w-123"
@@ -488,9 +520,8 @@ In case of errors - for example when the client submits too frequently - with
 ```json
 {
   "id": 16,
-  "jsonrpc": "2.0",
   "error" : {
-    "code": 420,
+    "code": 220,
     "message": "Enhance your calm. Too many requests"
   }
 }
@@ -499,7 +530,6 @@ In case of errors - for example when the client submits too frequently - with
 Optionally the server can **notify** client about it's overall performance (according to schedule set on server) with a `mining.hashrate` notification composed like this
 ```json
 {
-  "jsonrpc": "2.0",
   "method": "mining.hashrate",
   "params": {
       "interval": 60,
