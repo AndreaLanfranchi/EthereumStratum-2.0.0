@@ -88,11 +88,12 @@ You'll notice here some differences with standard JSON-RPC-2.0. Namely the resul
 ```
 means "request received and processed correctly with no data to send back".
 
-To better clarify the concept and clear the field of free interpretations let's take another example of **response**
+To better clarify the concept and clear the field of free interpretations let's take another example of **wrong response**
 ```json
 {"id": 2, "result": false}
 ```
 This response syntax leaves room to many interpretations : is it an error ? is `false` the legit response value to the issued request ?
+
 For this reason responses, we reiterate, **MUST BE** of two types:
 - success responses : no error occurred during the processing, the request was legit, syntactically correct, and the receiver had no issues processing it. This kind of responses **MUST NOT** have the `error` member and **MAY** have the `result` member if a value is expected back to the issuer.
 - failure responses : something wrong with the request, it's syntax, it's validity scope, or server processing problems. This kind of responses **MUST HAVE** the `error` member and **MAY** have the `result` member.
