@@ -1,12 +1,5 @@
-# EthereumStratum/2.0.0 - Implementation guide lines
-## Author
-- [Andrea Lanfranchi](https://github.com/AndreaLanfranchi)
-## Contributors
-- [Paweł Bylica](https://github.com/chfast)
-- [Peter Pratscher](https://github.com/ppratscher)
-- [Marius Van Der Wijden](https://github.com/MariusVanDerWijden)
-## License
-GPL V3
+# EthereumStratum/2.0.0 - Implementation proposal guide lines
+
 ## Abstract
 This draft contains the guidelines to define a new standard for the Stratum protocol used by Ethereum miners to communicate with mining pool servers.
 
@@ -78,7 +71,7 @@ The JSON representation of `request` object is made of these parts:
 The JSON representation of `response` object is made of these parts:
 - mandatory `id` member of type Integer : the identifier of the request this response corresponds to
 - optional `error` member : whether an error occurred during the parsing of the method or during it's execution this member **MUST** be present and valued. If no errors occurred this member **MUST NOT** be present. For a detailed structure of the `error` member see below.
-- optional `result` member : This has to be set, if the corresponding request requires a result from the user. If no errors occurred by invoking the corresponding function, this member **MUST** be present even if one or more informations are null. The type can be of Object or single type Array. If no data is meant back for the issuer (the method is void on the receiver) or an error occurred this member **MUST NOT** be present.
+- optional `result` member : This has to be set, if the corresponding request requires a result from the user. If no errors occurred by invoking the corresponding function, this member **MUST** be present even if one or more informations are null. The type can be of Object or single type Array or Primitive string/number. If no data is meant back for the issuer (the method is void on the receiver) or an error occurred this member **MUST NOT** be present.
 
 You'll notice here some differences with standard JSON-RPC-2.0. Namely the result member is not always required. Basically a response like this :
 ```json
