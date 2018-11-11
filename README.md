@@ -351,7 +351,7 @@ For this purpose the `notification` method `mining.set` allows to set (on miner'
       "epoch" : "dc",
       "target" : "112e0be826d694b2e62d01511f12a6061fbaec8bc02357593e70e52ba",
       "algo" : "ethash",
-      "extranonce" : "af4c"
+      "extranonce" : ["af4c", "30"]
   }
 }
 ```
@@ -359,7 +359,7 @@ At the beginning of each `session` the server **MUST** send this notification be
 - optional `epoch` (hex) : unlike all actual Stratum implementations the server should inform the client of the epoch number instead of passing the seed hash. This is enforced by two reasons : the main one is that client has only one way to compute the epoch number and this is by a linear search from epoch 0 iteratively trying increasing epochs till the hash matches the seed hash. Second reason is that epoch number is more concise than seed hash. In the end the seed hash is only transmitted to inform the client about the epoch and is not involved in the mining algorithm.
 - optional `target` (hex) : this is the boundary hash already adjusted for pool difficulty. Unlike in EthereumStratum/1.0.0, which provides a `mining.set_difficulty` notification of an _index of difficulty_, the proponent opt to pass directly the boundary hash. If omitted the client **MUST** assume a boundary of `"ffff0000000000000000000000000000000000000000000000000000"`
 - optional `algo` (string) : the algorithm the miner is expected to mine on. If omitted the client **MUST** assume `"algo": "ethash"`
-- optional `extranonce` (hex) : a starting search segment nonce assigned by server to clients so they possibly do not overlap their search segments. If server wants to "cancel" a previously set extranonce it must pass this member valued as an empty string.
+- optional `extranonce` (array of two hexnumbers) : a starting search segment nonce assigned by server to clients so they possibly do not overlap their search segments. If server wants to "cancel" a previously set extranonce it must pass this member valued as `["0":0"]`.
 
 Whenever the server detects that one, or two, or three or four values change within the session, the server will issue a notification with one, or two or three or four members in the `param` object. For this reason on each **new** session the server **MUST** pass all four members. As a consequence the miner is instructed to adapt those values on **next** job which gets notified.
 The new `algo` member is defined to be prepared for possible presence of algorithm variants to ethash, namely ethash1a or ProgPow.
@@ -367,9 +367,19 @@ Pools providing multicoin switching will take care to send a new `mining.set` to
 The client wich can't support the data provided in the `mining.set` notification **MAY** close connection or stay idle till new values satisfy it's configuration (see `mining.noop`).
 All client's implementations **MUST** be prepared to accept new extranonces during the session: unlike in EthereumStratum/1.0.0 the optional client advertisement `mining.extranonce.subscribe` is now implicit and mandatory.
 
-The miner receiving the `extranonce` **MUST** initialize the search segment for next job resizing the extranonce to a hex of 16 bytes thus appending as many zeroes as needed.
-Extranonce "af4c" means "_search segment of next jobs starts from 0xaf4c000000000000_"
-If `extranonce` is valued to an empty string, or it's never been set within the session scope, the client is free pick any starting point of it's own search segment on subsequent `mining.notify` jobs.
+The miner receiving the `extranonce` **MUST** initialize the search segment for next job starting the miners search range from:
+```c
+uint64 start = (uint64)(extranonce[0]) << (uint64)(extranonce[1]);
+uing64 nonces_to_test = (uint64)(1) << (uint64)(extranonce[1]);
+uint64 end = start | (nonces_to_test - 1);
+
+/* end is included and may be tested by the miner */
+for(uint64 nonce=start; nonce <= end; nonce++) {
+ .... /* Test the nonce */
+}
+```
+
+If it's never been set within the session scope, the client is free pick any starting point of it's own search segment on subsequent `mining.notify` jobs.
 
 ### A detail of "extranonce"
 
@@ -396,28 +406,15 @@ Giving the above assumptions we can depict a nonce as any number in the hex rang
 ```
 _the prefix 0x is voluntarily inserted here only to give a better visual representation_.
 
-The `extranonce` is, at it's basics, the message of the server saying the client "_I give you the first number to start search from_". More in detail the `extranoce` is the leftmost part of that number.
-Assume a pool notifies the client the usage of extranonce `ab5d` this means the client will see it's search segment narrowed as 
-```
-  Min 0xab5d000000000000
-  Max 0xab5dffffffffffff
-```
-Pushing an extranonce of 4 bytes (like in the example) will give pool the possibility to separate segment 65535 different miners ( or if you prefer 0xffff miners ) while leaving the miner still a segment of 2^48 possible nonces to search on.
+The `extranonce` is, at it's basics, the message of the server saying the client "_I give you the first number to start search from_".
+
+
+Pushing an extranonce of 4 bytes and shifting 48 bits (like in the example) will give pool the possibility to separate segment 65535 different miners ( or if you prefer 0xffff miners ) while leaving the miner still a segment of 2^48 possible nonces to search on.
 Recalculating, as above, the computation capacity needed to search this segment we get
 ```
   ( 2^48 / 15 ) / 1T ~ 18.76 TeraHashes per second
 ```
 Which is still a wide segment where miners can randomly (or using other ergodic techniques) pick their internal search segments.
-
-Extranonce **MUST** be passed with all relevant bytes (no omission of left zeroes) for a specific reason. Assume an extranonce of "01ac" : it  has the same decimal value of "1ac" but the number of bytes changes thus changing available search segment
-
-```
-  When "01ac"               When "1ac"
-  Segment is                Segment is
-  Min  0x01ac000000000000   Min  0x1ac0000000000000
-  Max  0x01acffffffffffff   Max  0x1acfffffffffffff
-```
-As you can see resulting segments are quite different
 
 This all said pools (server), when making use of extranonce, **MUST** take care about miners nonce test range is big enough for its available hashrate as the length of extranonce is only limitted by the length of nonce (which is a 64bit value).
 
@@ -455,9 +452,9 @@ When a miner finds a solution for a job he is mining on it sends a `mining.submi
 ```
 First element of `params` array is the jobId this solution refers to (as sent in the `mining.notify` message from the server). Second element is the `miner nonce` as hex. Third element is the token given to the worker previous `mining.authorize` request. Any `mining.submit` request bound to a worker which was not succesfully authorized - i.e. the token does not exist in the session - **MUST** be rejected.
 
-You'll notice in the sample above the `miner nonce` is 16 bytes (even we got an `extranonce` of `af4c` in the previous `mining.set` request)!
+You'll notice in the sample above the `miner nonce` is 16 bytes (even we got an `extranonce` of [`"af4c","30"]` in the previous `mining.set` request)!
 Yes - within `mining.submit` the whole nonce is submitted!
-Miner has not to take care about the extranonce, just submist the nonce found.
+Miner has NOT to take care about the extranonce, when submitting a found nonce.
 Pool can validate the solution in a fast path and forward the solution to etherium network if it matches the global target (no session related data are required).
 Pool can response and account the miner in the slow path.
 
