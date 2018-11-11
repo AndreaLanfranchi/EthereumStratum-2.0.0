@@ -419,7 +419,7 @@ Extranonce **MUST** be passed with all relevant bytes (no omission of left zeroe
 ```
 As you can see resulting segments are quite different
 
-This all said pools (server), when making use of extranonce, **MUST** observe a maximum length of 6 bytes (hex).
+This all said pools (server), when making use of extranonce, **MUST** take care about miners nonce test range is big enough for its available hashrate as the length of extranonce is only limitted by the length of nonce (which is a 64bit value).
 
 ### Jobs notification
 When available server will dispatch jobs to connected miners issuing a `mining.notify` notification.
