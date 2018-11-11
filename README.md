@@ -57,7 +57,7 @@ In order to get the most concise messages among parties of a session/conversatio
 - JSON values `arrays` : although the JSON notation allows the insertion of different data types within the same array, this behavior is generally not accepted in coding languages. Due to this, by the means of EthereumStratum/2.0.0, all implementers **MUST** assume that an array is made of elements of the very same data type.
 - JSON values `booleans` : the JSON notation allows to express boolean values as `true` or `false`. In EthereumStratum/2.0.0, for better compatibility within arrays, boolean values will be expressed in the hex form of "0" (false) or "1" (true)
 - JSON values `strings` : any string value **MUST** be composed of printable ASCII chars only in the ASCII range 32..126. Each string is delimited by a `"` (ASCII 34) at the beginning and at the end. Should the string value contain a `"` this must be escaped as `\"`
-- Hex values : a Hexadecimal representation of a number is actually a string data type. As a convention, and to reduce the number of transmitted bytes, the prefix "0x" **MUST** always be omitted. In addition any hex number **MUST** be transferred only for their significant part i.e. the non significant zeroes **MUST** be omitted (example : the decimal `456` must be represented as `"1c8"` and not as `"01c8"` although the conversion produces the same decimal value). This directive **DOES NOT APPLY** to hashes and extranonces
+- Hex values : a Hexadecimal representation of a number is actually a string data type. As a convention, and to reduce the number of transmitted bytes, the prefix "0x" **MUST** always be omitted. In addition any hex number **MUST** be transferred only for their significant part i.e. the non significant zeroes **MUST** be omitted (example : the decimal `456` must be represented as `"1c8"` and not as `"01c8"` although the conversion produces the same decimal value).
 - Hex values casing : all letters in Hexadecimal values **MUST** be lower case. (example : the decimal `456` must be represented as `"1c8"` and not as `"1C8"` although the conversion produces the same decimal value). This directive **DOES NOT APPLY** to hashes.
 - Numbers : any non-fractional number **MUST** be transferred by it's hexadecimal representation
 
@@ -349,7 +349,7 @@ For this purpose the `notification` method `mining.set` allows to set (on miner'
   "method": "mining.set", 
   "params": {
       "epoch" : "dc",
-      "target" : "0112e0be826d694b2e62d01511f12a6061fbaec8bc02357593e70e52ba",
+      "target" : "112e0be826d694b2e62d01511f12a6061fbaec8bc02357593e70e52ba",
       "algo" : "ethash",
       "extranonce" : "af4c"
   }
@@ -357,7 +357,7 @@ For this purpose the `notification` method `mining.set` allows to set (on miner'
 ```
 At the beginning of each `session` the server **MUST** send this notification before any `mining.notify`. All values passed by this notification will be valid for all **NEXT** jobs until a new `mining.set` notification overwrites them. Description of members is as follows:
 - optional `epoch` (hex) : unlike all actual Stratum implementations the server should inform the client of the epoch number instead of passing the seed hash. This is enforced by two reasons : the main one is that client has only one way to compute the epoch number and this is by a linear search from epoch 0 iteratively trying increasing epochs till the hash matches the seed hash. Second reason is that epoch number is more concise than seed hash. In the end the seed hash is only transmitted to inform the client about the epoch and is not involved in the mining algorithm.
-- optional `target` (hex) : this is the boundary hash already adjusted for pool difficulty. Unlike in EthereumStratum/1.0.0, which provides a `mining.set_difficulty` notification of an _index of difficulty_, the proponent opt to pass directly the boundary hash. If omitted the client **MUST** assume a boundary of `"0x00000000ffff0000000000000000000000000000000000000000000000000000"`
+- optional `target` (hex) : this is the boundary hash already adjusted for pool difficulty. Unlike in EthereumStratum/1.0.0, which provides a `mining.set_difficulty` notification of an _index of difficulty_, the proponent opt to pass directly the boundary hash. If omitted the client **MUST** assume a boundary of `"ffff0000000000000000000000000000000000000000000000000000"`
 - optional `algo` (string) : the algorithm the miner is expected to mine on. If omitted the client **MUST** assume `"algo": "ethash"`
 - optional `extranonce` (hex) : a starting search segment nonce assigned by server to clients so they possibly do not overlap their search segments. If server wants to "cancel" a previously set extranonce it must pass this member valued as an empty string.
 
@@ -448,18 +448,18 @@ When a miner finds a solution for a job he is mining on it sends a `mining.submi
   "method": "mining.submit", 
   "params": [
       "bf0488aa",
-      "68765fccd712",
+      "af4c68765fccd712",
       "w-123"
   ]
 }
 ```
 First element of `params` array is the jobId this solution refers to (as sent in the `mining.notify` message from the server). Second element is the `miner nonce` as hex. Third element is the token given to the worker previous `mining.authorize` request. Any `mining.submit` request bound to a worker which was not succesfully authorized - i.e. the token does not exist in the session - **MUST** be rejected.
 
-You'll notice in the sample above the `miner nonce` is only 12 bytes wide (should be 16). Why ?
-That's because in the previous `mining.set` the server has set an `extranonce` of `af4c`. This means the full nonce is `af4c68765fccd712`
-In presence of extranonce the miner **MUST** submit only the chars to append to the extranonce to build the final hex value. If no extranonce is set for the session or for the work the miner **MUST** send all 16 bytes.
-
-It's server duty to keep track of the tuples `job ids <-> extranonces` per session.
+You'll notice in the sample above the `miner nonce` is 16 bytes (even we got an `extranonce` of `af4c` in the previous `mining.set` request)!
+Yes - within `mining.submit` the whole nonce is submitted!
+Miner has not to take care about the extranonce, just submist the nonce found.
+Pool can validate the solution in a fast path and forward the solution to etherium network if it matches the global target (no session related data are required).
+Pool can response and account the miner in the slow path.
 
 When the server receives this request it either responds success using the short form
 ```json
