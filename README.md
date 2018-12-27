@@ -101,7 +101,7 @@ The latter deserves a better explanation: failure responses can be distinguished
 Example 1 : a client submits a solution and server rejects it cause it's not below target. Server **MUST** respond like this
 ```json
 {
-  "id": 31,
+  "id": 1,
   "error": {
       "code": 406,
       "message" : "Bad nonce"
@@ -111,7 +111,7 @@ Example 1 : a client submits a solution and server rejects it cause it's not bel
 Example 2 : a client submits a solution and server **accepts** it **but** it accounts the share as stale. Server **MUST** respond like this
 ```json
 {
-  "id": 31,
+  "id": 1,
   "error": {
       "code": 202,
       "message" : "Stale"
@@ -303,7 +303,7 @@ A client which successfully subscribes and resumes session (the `session` value 
 There are cases when a miner struggles to find a solution in a reasonable time so it may trigger the timeout imposed by the server in case of no communications (the server, in fact, may think the client got disconnected). To mitigate the problem a new method `mining.noop`(with no additional parameters) may be requested by the client. 
 ```json
 {
-  "id": 50,
+  "id": 1,
   "method": "mining.noop"
 }
 ```
@@ -331,7 +331,7 @@ The miner **MUST** authorize at least one worker in order to begin receiving job
 The syntax for the authorization request is the following:
 ```json
 {
-  "id": 2,
+  "id": 1,
   "method": "mining.authorize", 
   "params": ["<account>[.<MachineName>]", "password"]
 }
@@ -340,7 +340,7 @@ The syntax for the authorization request is the following:
 The server **MUST** reply back either with an error or, in case of success, with
 ```json
 {
-  "id": 2,
+  "id": 1,
   "result": "w-123"
 }
 ```
@@ -354,6 +354,7 @@ A lot of data is sent over the wire multiple times with useless redundancy. For 
 For this purpose the `notification` method `mining.set` allows to set (on miner's side) only those params which change less frequently. The server will keep track of seed, target and extraNonce at session level and will push a notification `mining.set` whenever any (or all) of those values change to the connected miner.
 ```json
 {
+  "id": 1,
   "method": "mining.set", 
   "params": {
       "epoch" : "dc",
@@ -433,6 +434,7 @@ This all said pools (server), when making use of extranonce, **MUST** observe a 
 When available server will dispatch jobs to connected miners issuing a `mining.notify` notification.
 ```json
 {
+  "id": 1,
   "method": "mining.notify", 
   "params": [
       "bf0488aa",
@@ -452,7 +454,7 @@ When available server will dispatch jobs to connected miners issuing a `mining.n
 When a miner finds a solution for a job he is mining on it sends a `mining.submit` request to server.
 ```json
 {
-  "id": 31,
+  "id": 1,
   "method": "mining.submit", 
   "params": [
       "bf0488aa",
@@ -471,12 +473,12 @@ It's server duty to keep track of the tuples `job ids <-> extranonces` per sessi
 
 When the server receives this request it either responds success using the short form
 ```json
-{"id": 31}
+{"id": 1}
 ```
 or, in case of any error or condition with a detailed error object
 ```json
 {
-  "id": 31,
+  "id": 1,
   "error": {
       "code": 404,
       "message" : "Job not found"
@@ -493,7 +495,7 @@ This method behaves differently when issued from client or from server.
 #### Client communicates it's hashrate to server.
 ```json
 {
-  "id" : 16,
+  "id" : 1,
   "method": "mining.hashrate",
   "params": [
       "500000",
@@ -504,12 +506,12 @@ This method behaves differently when issued from client or from server.
 where `params` is an array made of two elements: the first is a hexadecimal string representation (32 bytes) of the hashrate the miner reads on it's devices and the latter is the authorization token issued to worker this hashrate is refers to (see above for `mining.authorization`).
 Server **MUST** respond back with either an aknowledgment message
 ```json
-{"id": 16 }
+{"id": 1}
 ```
 Optionally the server can reply back reporting it's findings about calculated hashrate **for the same worker**.
 ```json
 {
-  "id": 16,
+  "id": 1,
   "result" : [
       "4f0000",
       "w-123"
