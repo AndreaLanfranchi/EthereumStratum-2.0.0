@@ -47,12 +47,12 @@ As per [JSON-RPC-2.0](https://www.jsonrpc.org/specification) specification reque
 - Responses **MUST** have an `id` member valued exactly as the `id` member of the request this response is for
 - Notifications **MUST NOT** have an `id` member
 
-### JSON-RPC-2.0 Defiances
+### JSON-RPC-2.0 Definitions
 
-In order to get the most concise messages among parties of a session/conversation this implementation enforces the following defiances :
+In order to get the most concise messages among parties of a session/conversation this implementation enforces the following definitions:
 - JSON member `jsonrpc` (always valued to "2.0") **MUST ALWAYS BE OMITTED**
-- JSON member `id` **MUST NOT** be `null`. When member is present, mandatorily in requests and responses, it **MUST** be valued to an integer Number ranging from 0 to 65535. Please note that a message with `"id": 0` **MUST NOT** be interpreted as a notification: it's a request with identifier 0
-- JSON member `id` **MUST** be only of type primitive number. The removal of other identifier types (namely strings) is due to the need to reduce the number of bytes transferred.
+- JSON member `id` **MUST NOT** be `null`. When member is present, mandatory in requests and responses, it **MUST** be valued to an integer ranging from 0 to 65535. Please note that a message with `"id": 0` **MUST NOT** be interpreted as a notification: it's a request with identifier 0
+- JSON member `id` **MUST** be only of type primitive integer. The removal of other identifier types (namely strings) is due to the need to reduce the number of bytes transferred.
 
 ## Conventions
 - The representation of a JSON object is, at it's base, a string 
