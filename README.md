@@ -20,7 +20,9 @@ Mining activity, thus the interaction among pools and miners, is at its basics v
 In order to keep things simple and not introduce new dependencies, we will stick with JSON-RPC formatted objects.
 
 ### Stratum design flaws
-The main Stratum design flaw is the absence of a well defined standard. This implies that miners (and mining software developers) have to struggle with different flavours which make their life hard when switching from one pool to another or even when trying to "guess" which is the flavour implemented by a single pool. Moreover all implementations still suffer from an excessive verbosity for a chain with a very small block time like Ethereum. A few numbers may help understand. A normal `mining.notify` message weigh roughly 240 bytes: assuming the dispatch of 1 work per block to an audience of 50k connected TCP sockets means the transmission of roughly 1.88TB of data a month. And this can be an issue for large pools. But if we see the same figures the other way round, from a miner's perspective, we totally understand how mining decentralization is heavily affected by the quality of internet connections.
+Lacking a well defined standard, mining software developers have to struggle with different flavours of Stratum. When switching from one pool to another or even when trying to "guess" which is the flavour implemented by a single pool, developers have to implement workaround for variations in implementations.
+
+All existing implementations suffer from excessive verbosity for a chain with a very small block time like Ethereum. A normal `mining.notify` message weighs roughly 240 bytes: assuming the dispatch of 1 work per block to an audience of 50k connected TCP sockets means the transmission of roughly 1.88TB of data a month. This can be an issue for large pools. From a miner's perspective, we understand how mining decentralization is heavily affected by the quality of internet connections.
 
 ### Sources of inspiration
 - [NiceHash EthereumStratum/1.0.0](https://github.com/nicehash/Specifications/blob/master/EthereumStratum_NiceHash_v1.0.0.txt)
