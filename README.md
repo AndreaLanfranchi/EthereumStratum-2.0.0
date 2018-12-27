@@ -55,19 +55,19 @@ In order to get the most concise messages among parties of a session/conversatio
 - JSON member `id` **MUST** be only of type primitive integer. The removal of other identifier types (namely strings) is due to the need to reduce the number of bytes transferred.
 
 ## Conventions
-- The representation of a JSON object is, at it's base, a string 
-- The conversation among the client and the server is made of strings. Each string ending with a LF (ASCII char 10) denotes a `line`. Each line **MUST** contain only one JSON root object. Eventually the root object **MAY** contain additional JSON objects in it's members.
+- The representation of a JSON object is, at its base, a string 
+- The conversation among the client and the server is made of strings. Each string ending with a LF (ASCII char 10) denotes a `line`. Each line **MUST** contain only one JSON root object. Eventually the root object **MAY** contain additional JSON objects in its members.
 - Aside the `LF` delimiter each `line` **MUST** be made of printable ASCII chars in the range 32..126
 - It's implicit and mandatory that each line message corresponds to a well formatted JSON object: see [JSON documentation](https://www.json.org/)
 - JSON objects are made of `members` which can be of type : primitive of string/number, JSON object, JSON arrays
 - JSON `member`'s names are strings which **MUST** be composed of printable chars only in the ASCII range 48..57 (numbers) and 97..122 (lower case letters).
 - JSON `member`'s names **MUST NOT** begin with a number.
-- JSON values `arrays` : although the JSON notation allows the insertion of different data types within the same array, this behavior is generally not accepted in coding languages. Due to this, by the means of EthereumStratum/2.0.0, all implementers **MUST** assume that an array is made of elements of the very same data type.
+- JSON values `arrays` : although the JSON notation allows the insertion of different data types within the same array, this behavior is generally not accepted in coding languages. Implementers **MUST** assume that an array is made of elements of the very same data type.
 - JSON values `booleans` : the JSON notation allows to express boolean values as `true` or `false`. In EthereumStratum/2.0.0, for better compatibility within arrays, boolean values will be expressed in the hex form of "0" (false) or "1" (true)
 - JSON values `strings` : any string value **MUST** be composed of printable ASCII chars only in the ASCII range 32..126. Each string is delimited by a `"` (ASCII 34) at the beginning and at the end. Should the string value contain a `"` this must be escaped as `\"`
-- Hex values : a Hexadecimal representation of a number is actually a string data type. As a convention, and to reduce the number of transmitted bytes, the prefix "0x" **MUST** always be omitted. In addition any hex number **MUST** be transferred only for their significant part i.e. the non significant zeroes **MUST** be omitted (example : the decimal `456` must be represented as `"1c8"` and not as `"01c8"` although the conversion produces the same decimal value). This directive **DOES NOT APPLY** to hashes and extranonces
+- Hex values : a Hexadecimal representation of a number is actually a string data type. As convention and to reduce the number of transmitted bytes, the prefix "0x" **MUST** always be omitted. In addition, any hex number **MUST** be transferred only for their significant part i.e. the non significant zeroes **MUST** be omitted (example : the decimal `456` must be represented as `"1c8"` and not as `"01c8"` although the conversion produces the same decimal value). This directive **DOES NOT APPLY** to hashes and extranonces
 - Hex values casing : all letters in Hexadecimal values **MUST** be lower case. (example : the decimal `456` must be represented as `"1c8"` and not as `"1C8"` although the conversion produces the same decimal value). This directive **DOES NOT APPLY** to hashes.
-- Numbers : any non-fractional number **MUST** be transferred by it's hexadecimal representation
+- Numbers : any non-fractional number **MUST** be transferred by its hexadecimal representation
 
 ### Requests
 The JSON representation of `request` object is made of these parts:
