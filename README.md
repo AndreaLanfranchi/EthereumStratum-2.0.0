@@ -73,15 +73,15 @@ In order to get the most concise messages among parties of a session/conversatio
 The JSON representation of `request` object is made of these parts:
 - mandatory `id` member of type Integer : the identifier established by the issuer
 - mandatory `method` member of type String : the name of the method to be invoked on the receiver side
-- optional `params` member : in case the method invocation on the receiver side requires the application of additional parameters to be executed. The type **CAN** be Object (with named members of different types) or Array of single type. In case of an array the parameters will be applied by their ordinal position. If the method requested for invocation on the receiver side does not require the application of additional parameters this member **MUST NOT** be present. The notation `"params" : null` **IS NOT PERMITTED**
+- optional `params` member : in case the method invocation on the receiver side requires the application of additional parameters to be executed. The type **CAN** be Object (with named members of different types) or Array of single type. In case of an array, the parameters will be applied by their ordinal position. If the method requested for invocation on the receiver side does not require the application of additional parameters this member **MUST NOT** be present. The notation `"params" : null` **IS NOT PERMITTED**
 
 ### Responses
 The JSON representation of `response` object is made of these parts:
 - mandatory `id` member of type Integer : the identifier of the request this response corresponds to
 - optional `error` member : whether an error occurred during the parsing of the method or during it's execution this member **MUST** be present and valued. If no errors occurred this member **MUST NOT** be present. For a detailed structure of the `error` member see below.
-- optional `result` member : This has to be set, if the corresponding request requires a result from the user. If no errors occurred by invoking the corresponding function, this member **MUST** be present even if one or more informations are null. The type can be of Object or single type Array or Primitive string/number. If no data is meant back for the issuer (the method is void on the receiver) or an error occurred this member **MUST NOT** be present.
+- optional `result` member : This **MUST** be set, if the corresponding request requires a result from the user. If no errors occurred by invoking the corresponding function, this member **MUST** be present even if one or more informations are null. The type can be of Object or single type Array or Primitive string/number. If no data is meant back for the issuer (the method is void on the receiver) or an error occurred this member **MUST NOT** be present.
 
-You'll notice here some differences with standard JSON-RPC-2.0. Namely the result member is not always required. Basically a response like this :
+Notice some differences with standard JSON-RPC-2.0. Namely the result member is not always required. A response like this:
 ```json
 {"id": 2}
 ```
