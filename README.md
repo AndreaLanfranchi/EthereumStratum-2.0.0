@@ -203,7 +203,7 @@ If the server is prepared to start/resume a session with such requirements it **
 Where the `result` is an object made of 5 mandatory members
 - `proto` (string) which **MUST** match the exact version requested by the client
 - `encoding` (string) which value states whether or not all **next messages** should be gzip compressed or not. Possible values are "gzip" or "plain"
-- `resume` (hex) which value states whether or not the host can resume a previously created session;
+- `resume` (hex bool) which value states whether or not the host can resume a previously created session;
 - `timeout` (hex) which reports the number of seconds after which the server is allowed to drop connection if no messages from the client
 - `maxerrors` (hex) the maximum number of errors the server will bear before abruptly close connection
 - `node` (string) the node software version underlying the pool
@@ -314,7 +314,7 @@ The implementation of the notification `mining.reconnect` helps client to better
 ```
 This notification is meant only from servers to clients. Should a server receive such a notification it will simply ignore it. After the notification has been properly sent, the server is ALLOWED to close the connection, while the client will take the proper actions to reconnect to the suggested end-point.
 The `host` member in `params` object **SHOULD** report an host DNS name and not an IP address: TLS encrypted connections require to validate the CN name in the certificate which, 99% of the cases, is an host name. 
-The third member `resume` of the `params` object sets whether or not the receiving server is prepared for session resuming.
+The third member `resume` (hex bool) of the `params` object sets whether or not the receiving server is prepared for session resuming.
 After this notification has been issued by the server, the client should expect no further messages and **MUST** disconnect.
 
 ### Workers Authorization
