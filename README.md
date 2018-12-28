@@ -47,7 +47,7 @@ As per [JSON-RPC-2.0](https://www.jsonrpc.org/specification) specification _requ
 - Responses **MUST** have an `id` member valued exactly as the `id` member of the request this response is for
 - Notifications **MUST NOT** have an `id` member
 
-### JSON-RPC-2.0 Definitions
+### JSON-RPC-2.0 Differences
 
 In order to get the most concise messages among parties of a session/conversation this implementation enforces the following definitions:
 - JSON member `jsonrpc` (always valued to "2.0") **MUST ALWAYS BE OMITTED**
