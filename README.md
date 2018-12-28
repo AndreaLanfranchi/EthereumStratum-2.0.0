@@ -51,8 +51,8 @@ As per [JSON-RPC-2.0](https://www.jsonrpc.org/specification) specification _requ
 
 In order to get the most concise messages among parties of a session/conversation this implementation enforces the following definitions:
 - JSON member `jsonrpc` (always valued to "2.0") **MUST ALWAYS BE OMITTED**
-- JSON member `id` **MUST NOT** be `null`. When member is present, mandatory in requests and responses, it **MUST** be valued to an integer ranging from 0 to 65535. Please note that a message with `"id": 0` **MUST NOT** be interpreted as a notification: it's a request with identifier 0
-- JSON member `id` **MUST** be only of type primitive integer. The removal of other identifier types (namely strings) is due to the need to reduce the number of bytes transferred.
+- JSON member `id` **MUST NOT** be `null` and is mandatory in requests and responses
+- JSON member `id` **MUST** be valued to a range from 0 to 65535. Please note that a message with `"id": 0` **MUST NOT** be interpreted as a notification: it's a request with identifier 0. The removal of other identifier types (namely strings) is due to the need to reduce the number of bytes transferred.
 
 ## Conventions
 - The representation of a JSON object is, at its base, a string 
@@ -71,13 +71,13 @@ In order to get the most concise messages among parties of a session/conversatio
 
 ### Requests
 The JSON representation of `request` object is made of these parts:
-- mandatory `id` member of type Integer : the identifier established by the issuer
+- mandatory `id` member : the identifier established by the issuer. valued to a range from 0 to 65535.
 - mandatory `method` member of type String : the name of the method to be invoked on the receiver side
 - optional `params` member : in case the method invocation on the receiver side requires the application of additional parameters to be executed. The type **CAN** be Object (with named members of different types) or Array of single type. In case of an array, the parameters will be applied by their ordinal position. If the method requested for invocation on the receiver side does not require the application of additional parameters this member **MUST NOT** be present. The notation `"params" : null` **IS NOT PERMITTED**
 
 ### Responses
 The JSON representation of `response` object is made of these parts:
-- mandatory `id` member of type Integer : the identifier of the request this response corresponds to
+- mandatory `id` member : the request id this response corresponds to
 - optional `error` member : whether an error occurred during the parsing of the method or during it's execution this member **MUST** be present and valued. If no errors occurred this member **MUST NOT** be present. For a detailed structure of the `error` member see below.
 - optional `result` member : This **MUST** be set, if the corresponding request requires a result from the user. If no errors occurred by invoking the corresponding function, this member **MUST** be present even if one or more informations are null. The type can be of Object or single type Array or Primitive string/number. If no data is meant back for the issuer (the method is void on the receiver) or an error occurred this member **MUST NOT** be present.
 
