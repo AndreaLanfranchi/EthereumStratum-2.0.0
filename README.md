@@ -42,7 +42,7 @@ During a `session` both parties **CAN** exchange messages of the above depicted 
 
 ### JSON-RPC-2.0 Compliances
 
-As per [JSON-RPC-2.0](https://www.jsonrpc.org/specification) specification requests and responses differ from notifications by the identifier (`id`) member in the JSON object: 
+As per [JSON-RPC-2.0](https://www.jsonrpc.org/specification) specification _requests_ and _responses_ differ from _notifications_ by the identifier (`id`) member in the JSON object: 
 - Requests **MUST** have an `id` member
 - Responses **MUST** have an `id` member valued exactly as the `id` member of the request this response is for
 - Notifications **MUST NOT** have an `id` member
