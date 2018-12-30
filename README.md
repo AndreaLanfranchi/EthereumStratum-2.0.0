@@ -200,7 +200,7 @@ If the server is prepared to start/resume a session with such requirements it **
   "result": 
   { 
     "proto" : "EthereumStratum/2.0.0",
-    "encoding" : "gzip",
+    "encoding" : "plain",
     "resume" : "1",
     "timeout" : "b4",
     "maxerrors" : "5",
@@ -210,14 +210,14 @@ If the server is prepared to start/resume a session with such requirements it **
 ```
 Where the `result` is an object made of 5 mandatory members
 - `proto` (string) which **MUST** match the exact version requested by the client
-- `encoding` (string) states whether or not all **next messages** should be gzip compressed or not. Possible values are "gzip" or "plain"
+- `encoding` (string) states whether or not all **next messages** should be read as plain text or as streams of data. Actually the only possible value is or "plain" (Gzip compression is dropped as it's not efficient on such small sized messages)
 - `resume` (hex bool) states whether or not the host can resume a previously created session;
 - `timeout` (hex) the number of seconds after which the server is allowed to drop connection if no messages are received from the client
 - `maxerrors` (hex) the maximum number of errors the server will bear before abruptly closing connection
 - `node` (string) the node software version underlying the pool
 
-When the server replies back with `"encoding" : "gzip"` to the client, both parties **MUST** gzip compress all next messages. In case the client is not capable of compression it **MUST** close the connection immediately.
-Should the server, after this reply, receive other messages as plain text, it **MUST** close the connection.
+~~When the server replies back with `"encoding" : "gzip"` to the client, both parties **MUST** gzip compress all next messages. In case the client is not capable of compression it **MUST** close the connection immediately.
+Should the server, after this reply, receive other messages as plain text, it **MUST** close the connection.~~
 
 Eventually the client will continue with `mining.subscribe` (described below)
 
